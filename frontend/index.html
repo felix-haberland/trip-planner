@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Planner</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.15/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.0/marked.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1 @click="goHome" style="cursor:pointer">Trip Planner</h1>
+            <span v-if="currentTrip" class="header-trip-name">{{ currentTrip.name }}</span>
+        </header>
+
+        <!-- TRIP LIST VIEW -->
+        <div v-if="view === 'list'" class="container">
+            <div class="trip-list-header">
+                <h2>Your Trips</h2>
+                <button class="btn btn-primary" @click="view = 'create'">+ New Trip</button>
+            </div>
+            <div v-if="trips.length === 0" class="empty-state">
+                No trips yet. Create your first trip to get started!
+            </div>
+            <div v-for="trip in trips" :key="trip.id" class="trip-card" @click="openTrip(trip.id)">
+                <div class="trip-card-header">
+                    <h3>{{ trip.name }}</h3>
+                    <span class="status-badge" :class="trip.status">{{ trip.status }}</span>
+                </div>
+                <p class="trip-desc">{{ trip.description }}</p>
+                <div class="trip-meta">
+                    <span v-if="trip.suggested_count">{{ trip.suggested_count }} to review</span>
+                    <span>{{ trip.shortlisted_count }} shortlisted</span>
+                    <span>{{ trip.excluded_count }} excluded</span>
+                    <span>{{ formatDate(trip.updated_at) }}</span>
+                </div>
+                <div class="trip-actions" @click.stop>
+                    <button class="btn btn-small" @click="renameTrip(trip)">Rename</button>
+                    <button class="btn btn-small" @click="toggleArchive(trip)">
+                        {{ trip.status === 'archived' ? 'Unarchive' : 'Archive' }}
+                    </button>
+                    <button class="btn btn-small btn-danger" @click="confirmDelete(trip)">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CREATE TRIP VIEW -->
+        <div v-if="view === 'create'" class="container">
+            <h2>New Trip</h2>
+            <form @submit.prevent="createTrip" class="create-form">
+                <label>Trip Name</label>
+                <input v-model="newTrip.name" placeholder="e.g. Golf Trip June 2026" required>
+                <label>What are you looking for?</label>
+                <textarea v-model="newTrip.description"
+                    placeholder="e.g. golf trip in June, prefer short flights, warm weather"
+                    rows="3" required></textarea>
+                <div class="form-actions">
+                    <button type="button" class="btn" @click="view = 'list'">Cancel</button>
+                    <button type="submit" class="btn btn-primary" :disabled="creating">
+                        {{ creating ? 'Creating...' : 'Start Planning' }}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- PLANNING VIEW: Table + Chat sidebar -->
+        <div v-if="view === 'planning'" class="planning-layout" :class="{ 'chat-expanded': chatExpanded }">
+            <!-- MAIN AREA: Tables + Actions -->
+            <div class="planning-main">
+                <div class="planning-toolbar">
+                    <button class="btn btn-small" @click="goHome">&larr; Trips</button>
+                    <div class="action-buttons">
+                        <button class="btn btn-action" @click="quickAction('Suggest more destinations for this trip')"
+                            :disabled="sending">+ More Suggestions</button>
+                        <button class="btn btn-action" @click="quickAction('Compare my shortlisted options and highlight the key differences')"
+                            :disabled="sending || !currentTrip?.shortlisted?.length">Compare Picks</button>
+                        <button class="btn btn-action" @click="quickAction('Help me narrow down my shortlisted options')"
+                            :disabled="sending || !currentTrip?.shortlisted?.length">Narrow Down</button>
+                        <button class="btn btn-action" @click="promptChangeFocus"
+                            :disabled="sending">Change Focus</button>
+                        <button class="btn btn-action" @click="quickAction('Tell me more about the destinations in my review list — any hidden gems or red flags?')"
+                            :disabled="sending || !currentTrip?.suggested?.length">Deep Dive</button>
+                    </div>
+                </div>
+
+                <div class="trip-description-bar" v-if="currentTrip">
+                    <template v-if="editingDescription">
+                        <textarea v-model="editDescValue" rows="2" class="desc-edit-input"
+                            @keydown.enter.meta="saveDescription"
+                            @keydown.enter.ctrl="saveDescription"
+                            ref="descEditEl"></textarea>
+                        <button class="btn btn-small btn-primary" @click="saveDescription">Save</button>
+                        <button class="btn btn-small" @click="editingDescription = false">Cancel</button>
+                    </template>
+                    <template v-else>
+                        <span class="trip-desc-text" @click="startEditDescription">{{ currentTrip.description }}</span>
+                        <button class="btn btn-small" @click="startEditDescription" title="Edit description">&#9998;</button>
+                    </template>
+                </div>
+
+                <div class="tables-area">
+                    <!-- TO REVIEW -->
+                    <section v-if="currentTrip?.suggested?.length" class="table-section">
+                        <h3 class="section-title review-title">
+                            To Review ({{ currentTrip.suggested.length }})
+                        </h3>
+                        <table class="dest-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-dest">Destination</th>
+                                    <th class="col-score">Score</th>
+                                    <th class="col-score">Weather</th>
+                                    <th class="col-score">Cost</th>
+                                    <th class="col-score">Golf</th>
+                                    <th class="col-score">Flight</th>
+                                    <th class="col-reasoning">Reasoning</th>
+                                    <th class="col-note">Notes</th>
+                                    <th class="col-actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="dest in currentTrip.suggested" :key="'s'+dest.id">
+                                    <td class="dest-name">{{ dest.destination_name }}</td>
+                                    <td>{{ sv(dest, 'total_score') }}</td>
+                                    <td>{{ sv(dest, 'weather_score') }}</td>
+                                    <td>{{ sv(dest, 'cost_relative') }}</td>
+                                    <td>{{ sv(dest, 'golf_score') }}</td>
+                                    <td>{{ flightVal(dest) }}</td>
+                                    <td class="reasoning-cell">{{ dest.ai_reasoning }}</td>
+                                    <td class="note-cell" @click="editNote('suggested', dest)">
+                                        {{ dest.user_note || '+ note' }}
+                                    </td>
+                                    <td class="action-cell">
+                                        <button class="btn btn-small btn-shortlist"
+                                            @click="shortlistSuggested(dest)">Shortlist</button>
+                                        <button class="btn btn-small btn-exclude"
+                                            @click="excludeSuggested(dest)">
+                                            {{ dest.pre_filled_exclude_reason ? 'Exclude (visited)' : 'Exclude' }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <!-- SHORTLISTED -->
+                    <section class="table-section">
+                        <h3 class="section-title shortlist-title">
+                            Shortlisted ({{ currentTrip?.shortlisted?.length || 0 }})
+                        </h3>
+                        <div v-if="!currentTrip?.shortlisted?.length" class="empty-section">
+                            Shortlist destinations from the review table above, or ask the chatbot for suggestions.
+                        </div>
+                        <table v-else class="dest-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-dest">Destination</th>
+                                    <th class="col-score">Score</th>
+                                    <th class="col-score">Weather</th>
+                                    <th class="col-score">Cost</th>
+                                    <th class="col-score">Golf</th>
+                                    <th class="col-score">Flight</th>
+                                    <th class="col-reasoning">Reasoning</th>
+                                    <th class="col-note">Notes</th>
+                                    <th class="col-actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="dest in currentTrip.shortlisted" :key="'sl'+dest.id">
+                                    <td class="dest-name">{{ dest.destination_name }}</td>
+                                    <td>{{ sv(dest, 'total_score') }}</td>
+                                    <td>{{ sv(dest, 'weather_score') }}</td>
+                                    <td>{{ sv(dest, 'cost_relative') }}</td>
+                                    <td>{{ sv(dest, 'golf_score') }}</td>
+                                    <td>{{ flightVal(dest) }}</td>
+                                    <td class="reasoning-cell">{{ dest.ai_reasoning }}</td>
+                                    <td class="note-cell" @click="editNote('shortlisted', dest)">
+                                        {{ dest.user_note || '+ note' }}
+                                    </td>
+                                    <td class="action-cell">
+                                        <button class="btn btn-small btn-review"
+                                            @click="unreviewShortlisted(dest)">To Review</button>
+                                        <button class="btn btn-small btn-exclude"
+                                            @click="excludeShortlisted(dest)">Exclude</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <!-- EXCLUDED -->
+                    <details v-if="currentTrip?.excluded?.length" class="table-section">
+                        <summary class="section-title excluded-title">
+                            Excluded ({{ currentTrip.excluded.length }})
+                        </summary>
+                        <table class="dest-table excluded-table">
+                            <thead>
+                                <tr>
+                                    <th>Destination</th>
+                                    <th>Reason</th>
+                                    <th>Notes</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="dest in currentTrip.excluded" :key="'ex'+dest.id">
+                                    <td>{{ dest.destination_name }}</td>
+                                    <td>{{ dest.reason }}</td>
+                                    <td class="note-cell" @click="editNote('excluded', dest)">
+                                        {{ dest.user_note || '+ note' }}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-small btn-reconsider"
+                                            @click="reconsiderExcluded(dest)">Reconsider</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </details>
+                </div>
+            </div>
+
+            <!-- CHAT SIDEBAR (always visible) -->
+            <div class="chat-sidebar">
+                <div class="chat-sidebar-header">
+                    <h3>Assistant</h3>
+                    <button class="btn btn-small" @click="chatExpanded = !chatExpanded">
+                        {{ chatExpanded ? '◧ Sidebar' : '⛶ Expand' }}
+                    </button>
+                </div>
+                <div class="conv-tabs">
+                    <button v-for="conv in activeConversations" :key="conv.id"
+                        class="conv-tab" :class="{ active: conv.id === activeConvId }"
+                        @click="switchConversation(conv.id)">
+                        {{ conv.name }}
+                        <span class="conv-msg-count">({{ conv.message_count }})</span>
+                        <span class="conv-rename-btn" @click.stop="renameConversation(conv.id)"
+                            title="Rename">&#9998;</span>
+                        <span class="conv-archive-btn" @click.stop="archiveConversation(conv.id)"
+                            title="Archive">&times;</span>
+                    </button>
+                    <button class="conv-tab conv-new" @click="newConversation">+ New</button>
+                    <button v-if="archivedConversations.length"
+                        class="conv-tab conv-archive-toggle"
+                        :class="{ active: showArchivedConvs }"
+                        @click="showArchivedConvs = !showArchivedConvs">
+                        Archive ({{ archivedConversations.length }})
+                    </button>
+                </div>
+                <div v-if="showArchivedConvs && archivedConversations.length" class="conv-tabs conv-archived">
+                    <button v-for="conv in archivedConversations" :key="conv.id"
+                        class="conv-tab archived" :class="{ active: conv.id === activeConvId }"
+                        @click="switchConversation(conv.id)">
+                        {{ conv.name }}
+                        <span class="conv-msg-count">({{ conv.message_count }})</span>
+                        <span class="conv-unarchive-btn" @click.stop="unarchiveConversation(conv.id)"
+                            title="Unarchive">&#8634;</span>
+                        <span class="conv-delete-btn" @click.stop="deleteConversation(conv.id, conv.name)"
+                            title="Delete permanently">&#128465;</span>
+                    </button>
+                </div>
+                <div class="messages" ref="messagesContainer">
+                    <div v-for="(msg, idx) in messages" :key="msg.id"
+                         class="message" :class="msg.role">
+                        <div v-if="editingMessageId === msg.id" class="message-edit">
+                            <textarea v-model="editingContent" rows="3" class="edit-textarea"></textarea>
+                            <div class="edit-actions">
+                                <button class="btn btn-small btn-primary" @click="saveMessageEdit(msg)">Save</button>
+                                <button class="btn btn-small" @click="editingMessageId = null">Cancel</button>
+                            </div>
+                        </div>
+                        <template v-else>
+                            <div class="message-content" v-html="renderMarkdown(msg.content)"></div>
+                            <div class="message-footer" v-if="msg.role === 'assistant' && msg.content.length > 150">
+                                <button class="msg-expand-btn" @click="zoomMessage(msg)">Expand ⛶</button>
+                            </div>
+                            <div class="message-controls">
+                                <button class="msg-btn" @click="zoomMessage(msg)" title="Expand">&#x26F6;</button>
+                                <button class="msg-btn" @click="startEditMessage(msg)" title="Edit">&#9998;</button>
+                                <button class="msg-btn" @click="deleteMessage(msg, idx)" title="Delete">&times;</button>
+                            </div>
+                        </template>
+                    </div>
+                    <div v-if="sending" class="message assistant">
+                        <div class="message-content typing">Thinking...</div>
+                    </div>
+                </div>
+                <div v-if="lastMessageHasQuestions && !sending" class="answer-prompt">
+                    <button class="btn btn-answer" @click="zoomLastAssistant">
+                        ✏ Answer Questions
+                    </button>
+                </div>
+                <form @submit.prevent="sendMessage" class="chat-input">
+                    <input v-model="chatInput" placeholder="Ask anything..."
+                        :disabled="sending" ref="chatInputEl">
+                    <button type="submit" class="btn btn-primary btn-small"
+                        :disabled="sending || !chatInput.trim()">Send</button>
+                </form>
+            </div>
+        </div>
+        <!-- MESSAGE ZOOM OVERLAY -->
+        <div v-if="zoomedMessage" class="zoom-overlay" @click.self="zoomedMessage = null">
+            <div class="zoom-modal">
+                <div class="zoom-header">
+                    <span class="zoom-role">{{ zoomedMessage.role === 'user' ? 'You' : 'Assistant' }}</span>
+                    <button class="btn btn-small" @click="zoomedMessage = null">&times; Close</button>
+                </div>
+                <div class="zoom-body" v-html="renderMarkdownFull(zoomedMessage.content)"></div>
+
+                <!-- Interactive reply for assistant messages with questions -->
+                <div v-if="zoomedMessage.role === 'assistant' && zoomQuestions.length"
+                     class="zoom-reply">
+                    <h4>Your Answers</h4>
+                    <div v-for="(q, i) in zoomQuestions" :key="i" class="zoom-question">
+                        <label>{{ q.text }}</label>
+                        <input v-model="q.answer" :placeholder="'Answer...'"
+                            @keyup.enter="sendZoomAnswers">
+                    </div>
+                    <div class="zoom-reply-actions">
+                        <button class="btn btn-primary" @click="sendZoomAnswers"
+                            :disabled="sending">Send Answers</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>
