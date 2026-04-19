@@ -1627,6 +1627,121 @@
             <!-- Backdrop that closes any open per-idea overflow menu -->
             <div v-if="openIdeaMenuId" class="menu-backdrop" @click="closeIdeaMenu"></div>
 
+            <!-- Year-level dialog (exclude, Ask AI, Suggest more, Link trip) -->
+            <div v-if="dialogKind" class="dialog-overlay" @click.self="closeDialog">
+                <div class="dialog-card">
+                    <!-- Exclude option -->
+                    <template v-if="dialogKind === 'excludeOption'">
+                        <h3 class="dialog-title">Exclude option "{{ dialogCtx.target.name }}"</h3>
+                        <p class="dialog-hint">The AI reads this reason so it learns what to avoid proposing.</p>
+                        <label class="form-field">
+                            <span class="form-field-label">Reason</span>
+                            <textarea v-model="dialogCtx.reason" rows="3"
+                                      placeholder="e.g. too skewed toward one activity, partner didn't enjoy similar trip"
+                                      class="dialog-input"
+                                      @keyup.esc="closeDialog"></textarea>
+                        </label>
+                        <div class="dialog-actions">
+                            <button class="btn btn-small" @click="closeDialog">Cancel</button>
+                            <button class="btn btn-primary btn-small"
+                                    :disabled="!dialogCtx.reason?.trim() || dialogSubmitting"
+                                    @click="submitExcludeOption">Exclude</button>
+                        </div>
+                    </template>
+
+                    <!-- Exclude idea -->
+                    <template v-else-if="dialogKind === 'excludeIdea'">
+                        <h3 class="dialog-title">Exclude trip idea "{{ dialogCtx.target.label || 'unnamed' }}"</h3>
+                        <p class="dialog-hint">The AI reads this reason so it learns what to avoid proposing.</p>
+                        <label class="form-field">
+                            <span class="form-field-label">Reason</span>
+                            <textarea v-model="dialogCtx.reason" rows="3"
+                                      placeholder="e.g. too far, partner allergic, already similar elsewhere"
+                                      class="dialog-input"
+                                      @keyup.esc="closeDialog"></textarea>
+                        </label>
+                        <div class="dialog-actions">
+                            <button class="btn btn-small" @click="closeDialog">Cancel</button>
+                            <button class="btn btn-primary btn-small"
+                                    :disabled="!dialogCtx.reason?.trim() || dialogSubmitting"
+                                    @click="submitExcludeIdea">Exclude</button>
+                        </div>
+                    </template>
+
+                    <!-- Ask AI for options -->
+                    <template v-else-if="dialogKind === 'askOptions'">
+                        <h3 class="dialog-title">Ask AI for year options</h3>
+                        <p class="dialog-hint">The assistant will generate complete-year candidates you can compare.</p>
+                        <label class="form-field">
+                            <span class="form-field-label">How many options?</span>
+                            <input type="number" v-model.number="dialogCtx.count" min="1" max="10" class="dialog-input">
+                        </label>
+                        <label class="form-field">
+                            <span class="form-field-label">Style hint (optional)</span>
+                            <input v-model="dialogCtx.hint"
+                                   placeholder="e.g. balanced, golf-heavy, budget under 20k"
+                                   class="dialog-input"
+                                   @keyup.enter="submitAskOptions"
+                                   @keyup.esc="closeDialog">
+                        </label>
+                        <div class="dialog-actions">
+                            <button class="btn btn-small" @click="closeDialog">Cancel</button>
+                            <button class="btn btn-primary btn-small"
+                                    :disabled="!dialogCtx.count || dialogCtx.count < 1"
+                                    @click="submitAskOptions">Ask</button>
+                        </div>
+                    </template>
+
+                    <!-- Suggest more for cell -->
+                    <template v-else-if="dialogKind === 'suggestCell'">
+                        <h3 class="dialog-title">
+                            Suggest more for "{{ dialogCtx.option.name }}" → {{ dialogCtx.windowLabel }}
+                        </h3>
+                        <p class="dialog-hint">The assistant will propose new trip ideas for this cell.</p>
+                        <label class="form-field">
+                            <span class="form-field-label">How many ideas?</span>
+                            <input type="number" v-model.number="dialogCtx.count" min="1" max="10" class="dialog-input">
+                        </label>
+                        <label class="form-field">
+                            <span class="form-field-label">Guidance (optional)</span>
+                            <input v-model="dialogCtx.hint"
+                                   placeholder="activities, vibe, budget, regions to avoid, …"
+                                   class="dialog-input"
+                                   @keyup.enter="submitSuggestCell"
+                                   @keyup.esc="closeDialog">
+                        </label>
+                        <div class="dialog-actions">
+                            <button class="btn btn-small" @click="closeDialog">Cancel</button>
+                            <button class="btn btn-primary btn-small"
+                                    :disabled="!dialogCtx.count || dialogCtx.count < 1"
+                                    @click="submitSuggestCell">Ask</button>
+                        </div>
+                    </template>
+
+                    <!-- Link existing trip -->
+                    <template v-else-if="dialogKind === 'linkTrip'">
+                        <h3 class="dialog-title">Link an existing trip to this slot</h3>
+                        <p v-if="dialogCtx.loading" class="dialog-hint">Loading candidates…</p>
+                        <p v-else class="dialog-hint">Pick a trip that already exists in your plans.</p>
+                        <label class="form-field" v-if="!dialogCtx.loading && (dialogCtx.candidateTrips || []).length">
+                            <span class="form-field-label">Trip</span>
+                            <select v-model="dialogCtx.selectedTripId" class="dialog-input">
+                                <option v-for="t in dialogCtx.candidateTrips" :key="t.id" :value="t.id">
+                                    {{ t.name }}{{ t.target_month ? ` [${t.target_month}]` : '' }} (#{{ t.id }})
+                                </option>
+                            </select>
+                        </label>
+                        <p v-else-if="!dialogCtx.loading" class="dialog-hint">No unlinked trips this year.</p>
+                        <div class="dialog-actions">
+                            <button class="btn btn-small" @click="closeDialog">Cancel</button>
+                            <button class="btn btn-primary btn-small"
+                                    :disabled="!dialogCtx.selectedTripId || dialogSubmitting"
+                                    @click="submitLinkTrip">Link</button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
             <!-- Year chatbot sidebar -->
             <div class="chat-sidebar">
                 <div class="chat-sidebar-header">

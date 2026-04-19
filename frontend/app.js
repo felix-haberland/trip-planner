@@ -1424,14 +1424,34 @@ createApp({
             await reloadYearPlan();
         }
 
-        async function excludeOption(opt) {
-            const reason = prompt(`Why exclude "${opt.name}"? (shown to the AI so it learns.)`);
-            if (!reason) return;
-            await api(`/api/year-options/${opt.id}/exclude`, {
-                method: 'POST',
-                body: JSON.stringify({ reason }),
-            });
-            await reloadYearPlan();
+        // Unified dialog state — only one open at a time.
+        const dialogKind = ref(null);
+        const dialogCtx = ref({});
+        const dialogSubmitting = ref(false);
+        function closeDialog() {
+            dialogKind.value = null;
+            dialogCtx.value = {};
+            dialogSubmitting.value = false;
+        }
+
+        function excludeOption(opt) {
+            dialogKind.value = 'excludeOption';
+            dialogCtx.value = { target: opt, reason: '' };
+        }
+        async function submitExcludeOption() {
+            const { target, reason } = dialogCtx.value;
+            if (!reason || !reason.trim()) return;
+            dialogSubmitting.value = true;
+            try {
+                await api(`/api/year-options/${target.id}/exclude`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reason: reason.trim() }),
+                });
+                closeDialog();
+                await reloadYearPlan();
+            } finally {
+                dialogSubmitting.value = false;
+            }
         }
 
         async function unexcludeOption(opt) {
@@ -1549,14 +1569,24 @@ createApp({
             await reloadYearPlan();
         }
 
-        async function excludeIdea(idea) {
-            const reason = prompt(`Why exclude "${idea.label || 'this idea'}"? (shown to the AI so it learns.)`);
-            if (!reason) return;
-            await api(`/api/slots/${idea.id}/exclude`, {
-                method: 'POST',
-                body: JSON.stringify({ reason }),
-            });
-            await reloadYearPlan();
+        function excludeIdea(idea) {
+            dialogKind.value = 'excludeIdea';
+            dialogCtx.value = { target: idea, reason: '' };
+        }
+        async function submitExcludeIdea() {
+            const { target, reason } = dialogCtx.value;
+            if (!reason || !reason.trim()) return;
+            dialogSubmitting.value = true;
+            try {
+                await api(`/api/slots/${target.id}/exclude`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reason: reason.trim() }),
+                });
+                closeDialog();
+                await reloadYearPlan();
+            } finally {
+                dialogSubmitting.value = false;
+            }
         }
 
         async function unexcludeIdea(idea) {
@@ -1682,66 +1712,101 @@ createApp({
         }
 
         async function linkExistingTrip(slotId) {
-            const candidates = currentYearPlan.value.attachable_trip_ids || [];
+            const candidates = currentYearPlan.value?.attachable_trip_ids || [];
             if (!candidates.length) {
                 alert('No unlinked trips this year.');
                 return;
             }
-            const tripId = prompt(
-                `Enter trip id to link to this slot. Candidates: ${candidates.join(', ')}`
-            );
-            if (!tripId) return;
-            await api(`/api/slots/${slotId}/link-trip`, {
-                method: 'POST',
-                body: JSON.stringify({ trip_id: parseInt(tripId) }),
-            });
-            await reloadYearPlan();
+            dialogKind.value = 'linkTrip';
+            dialogCtx.value = {
+                slotId,
+                candidates,
+                candidateTrips: [],
+                selectedTripId: candidates[0],
+                loading: true,
+            };
+            // Fetch trip details so the picker shows real names, not just IDs.
+            try {
+                const allTrips = await api('/api/trips');
+                const byId = new Map(allTrips.map(t => [t.id, t]));
+                const detailed = candidates
+                    .map(id => byId.get(id))
+                    .filter(Boolean);
+                dialogCtx.value = {
+                    ...dialogCtx.value,
+                    candidateTrips: detailed,
+                    loading: false,
+                };
+            } catch {
+                dialogCtx.value = { ...dialogCtx.value, loading: false };
+            }
+        }
+        async function submitLinkTrip() {
+            const { slotId, selectedTripId } = dialogCtx.value;
+            if (!selectedTripId) return;
+            dialogSubmitting.value = true;
+            try {
+                await api(`/api/slots/${slotId}/link-trip`, {
+                    method: 'POST',
+                    body: JSON.stringify({ trip_id: parseInt(selectedTripId) }),
+                });
+                closeDialog();
+                await reloadYearPlan();
+            } finally {
+                dialogSubmitting.value = false;
+            }
         }
 
-        // --- Year advisor shortcuts ---
-        async function askAISuggestForCell(option, windowIndex) {
+        // --- Year advisor shortcuts (dialog-backed) ---
+        function askAISuggestForCell(option, windowIndex) {
             if (yearSending.value) return;
             const win = currentYearPlan.value?.windows?.[windowIndex];
-            const winLabel = win?.label || `Window ${windowIndex}`;
+            const windowLabel = win?.label || `Window #${windowIndex + 1}`;
+            dialogKind.value = 'suggestCell';
+            dialogCtx.value = {
+                option,
+                windowIndex,
+                windowLabel,
+                count: 2,
+                hint: '',
+            };
+        }
+        async function submitSuggestCell() {
+            const { option, windowIndex, windowLabel, count, hint } = dialogCtx.value;
+            if (!count || count < 1) return;
+            const win = currentYearPlan.value?.windows?.[windowIndex];
             const winDates = win ? `${win.start_date} → ${win.end_date}` : '';
-            const count = prompt(
-                `How many trip ideas should the assistant add to "${option.name}" → ${winLabel}?`,
-                '2',
-            );
-            if (!count) return;
-            const hint = prompt(
-                'Any guidance? (activities, vibe, budget, regions to avoid, …)',
-                '',
-            );
             const existing = (option.slots || []).filter(s => s.window_index === windowIndex);
             const existingBlock = existing.length
                 ? ` Existing ideas in this cell: ${existing.map(s => `"${s.label || 'unlabeled'}"`).join(', ')}. Propose NEW ideas that are meaningfully different.`
                 : '';
             yearChatInput.value =
-                `Please propose ${count} trip idea(s) for option "${option.name}" (id=${option.id}) in window ${windowIndex} (${winLabel}, ${winDates}).`
+                `Please propose ${count} trip idea(s) for option "${option.name}" (id=${option.id}) in window ${windowIndex} (${windowLabel}, ${winDates}).`
                 + (hint ? ` Guidance: ${hint}.` : '')
                 + existingBlock
                 + ` Use the propose_slot_in_option tool for each idea with option_id=${option.id} and window_index=${windowIndex}. Stay at the theme level — no specific destinations.`;
+            closeDialog();
             await sendYearMessage();
         }
 
-        async function askAIForOptions() {
-            const wantedCount = prompt('How many options should the assistant generate?', '3');
-            if (!wantedCount) return;
-            const hint = prompt(
-                'Any style hint? (e.g. "balanced", "golf-heavy and adventurous", "budget under 20k")',
-                '',
-            );
+        function askAIForOptions() {
+            dialogKind.value = 'askOptions';
+            dialogCtx.value = { count: 3, hint: '' };
+        }
+        async function submitAskOptions() {
+            const { count, hint } = dialogCtx.value;
+            if (!count || count < 1) return;
             const existing = currentYearPlan.value?.options || [];
             const existingBlock = existing.length
                 ? ` I already have these options: ${existing.map(o => `"${o.name}"`).join(', ')}. Please propose NEW options that are meaningfully different from those (different themes, different regions, different vibe).`
                 : '';
             const basePrompt = hint
-                ? `Please generate ${wantedCount} full-year option(s) for me. Style hint: ${hint}.`
-                : `Please generate ${wantedCount} full-year option(s) for me. Aim for variety — contrast themes, seasons, and activity mixes across the options.`;
+                ? `Please generate ${count} full-year option(s) for me. Style hint: ${hint}.`
+                : `Please generate ${count} full-year option(s) for me. Aim for variety — contrast themes, seasons, and activity mixes across the options.`;
             yearChatInput.value = basePrompt
                 + existingBlock
                 + ' Each option should fill some or all of my open windows (skipping a window is OK if it fits the theme). Stay at the *theme* level — do not lock in specific destinations.';
+            closeDialog();
             await sendYearMessage();
         }
 
@@ -1875,6 +1940,9 @@ createApp({
             editingOptionField, optionFieldDraft,
             startEditOptionField, cancelEditOptionField, saveOptionField, isEditingOptionField,
             askAIForOptions, askAISuggestForCell,
+            dialogKind, dialogCtx, dialogSubmitting, closeDialog,
+            submitExcludeOption, submitExcludeIdea,
+            submitAskOptions, submitSuggestCell, submitLinkTrip,
             switchYearConversation, newYearConversation, sendYearMessage,
             formatSlotSpan,
         };
