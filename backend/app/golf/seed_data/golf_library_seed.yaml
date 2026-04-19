@@ -1,1118 +1,457 @@
-# Golf Library seed list (spec 006 FR-S-001..S-006)
+# Golf Library seed list
 #
-# This file is auto-updated by `seed_golf_library.py enumerate`.
-# Manual edits are preserved on merge (dedup by name_norm + country).
+# Sourced (April 2026) from:
+#   - https://www.leadingcourses.com/inspiration/dc9aea93-caaf-4a04-b910-becc7c0b4134/best-golf-resorts-in-europe-2025  (LC)
+#   - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/  (TG-CE)
+#   - https://www.todays-golfer.com/courses/best/golf-resorts-in-the-world/  (TG-W)
+#   - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/that-give-value-for-money/  (TG-V)
 #
-# Entry schema:
-#   name: ..., country_code: XX, homepage_url?: ..., source_urls?: [...]
+# Each entry carries only (name, country_code). The seed script uses
+# Claude + web_search per entry to find the real homepage and extract
+# full resort details. Dedup is by (name_norm, country_code, entity_type).
 
 version: 1
 resorts:
-- name: Monte Rei Golf & Country Club
-  country_code: PT
-  homepage_url: https://www.monte-rei.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Quinta do Lago
-  country_code: PT
-  homepage_url: https://www.quintadolago.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Vilamoura
-  country_code: PT
-- name: Vale do Lobo
-  country_code: PT
-  homepage_url: https://www.valedolobo.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Penha Longa Resort
-  country_code: PT
-  homepage_url: https://www.penhalonga.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Praia D'El Rey
-  country_code: PT
-- name: Oitavos Dunes
-  country_code: PT
-  homepage_url: https://www.oitavosdunes.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Troia Golf
-  country_code: PT
-  homepage_url: https://www.troiaresort.pt
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Amendoeira Golf Resort
-  country_code: PT
-  homepage_url: https://www.amendoeiraresort.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Penina Hotel & Golf Resort
-  country_code: PT
-  homepage_url: https://www.penina.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Palheiro Estate Madeira
-  country_code: PT
-- name: Conrad Algarve
-  country_code: PT
-  homepage_url: https://www.conradalgarve.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: San Lorenzo Golf Course
-  country_code: PT
-  homepage_url: https://www.sanlorenzogolfcourse.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Palmares Ocean Living & Golf
-  country_code: PT
-- name: Quinta da Ria
-  country_code: PT
-- name: Belas Clube de Campo
-  country_code: PT
-- name: Pine Cliffs Resort
-  country_code: PT
-  homepage_url: https://www.pinecliffs.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Valderrama
+- name: Costa Navarino
+  country_code: GR
+- name: Finca Cortesín Golf Club
   country_code: ES
-- name: Finca Cortesin
-  country_code: ES
-  homepage_url: https://www.fincacortesin.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: La Reserva de Sotogrande
-  country_code: ES
-- name: PGA Catalunya Resort
-  country_code: ES
-  homepage_url: https://www.pgacatalunya.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Son Gual Mallorca
-  country_code: ES
-- name: Club de Golf Alcanada
-  country_code: ES
-  homepage_url: https://www.golf-alcanada.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: La Cala Resort
-  country_code: ES
-- name: Las Colinas Golf & Country Club
-  country_code: ES
-- name: Villa Padierna Palace Hotel
-  country_code: ES
-- name: Los Naranjos Golf Club
-  country_code: ES
-- name: Marbella Club
-  country_code: ES
-- name: La Manga Club
-  country_code: ES
-  homepage_url: https://www.lamangaclub.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Abama Golf Resort Tenerife
-  country_code: ES
-- name: Real Club de Golf El Saler
-  country_code: ES
-- name: Lumine Golf Club
-  country_code: ES
-- name: Islantilla Golf Resort
-  country_code: ES
-- name: Almenara Sotogrande
-  country_code: ES
-- name: Real Club de Golf El Prat
-  country_code: ES
-  homepage_url: https://www.realgolfelprat.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Old Course Hotel St Andrews
-  country_code: GB
-- name: Fairmont St Andrews
-  country_code: GB
-- name: Trump Turnberry
+- name: Trump Turnberry Resort
   country_code: GB
 - name: Gleneagles
   country_code: GB
-  homepage_url: https://www.gleneagles.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Archerfield House
+- name: Terre Blanche
+  country_code: FR
+- name: Trump International Golf Links Doonbeg
+  country_code: IE
+- name: Gloria Golf Club
+  country_code: TR
+- name: Praia D'El Rey Golf & Beach Resort
+  country_code: PT
+- name: The Montgomerie Maxx Royal
+  country_code: TR
+- name: Verdura Golf & Spa Resort
+  country_code: IT
+- name: Camiral Golf & Wellness
+  country_code: ES
+- name: Evian Resort Golf Club
+  country_code: FR
+- name: Carya Golf Club
+  country_code: TR
+- name: Monte Rei Golf & Country Club
+  country_code: PT
+- name: Golf Club Budersand Sylt
+  country_code: DE
+- name: Toscana Resort Castelfalfi
+  country_code: IT
+- name: Villa Padierna Golf Club
+  country_code: ES
+- name: Sotogrande
+  country_code: ES
+- name: The K Club
+  country_code: IE
+- name: Himmerland Golf & Spa Resort
+  country_code: DK
+- name: Black Sea Rama
+  country_code: BG
+- name: Fairmont St Andrews
+  country_code: GB
+- name: Thracian Cliffs Golf & Beach Resort
+  country_code: BG
+- name: Aphrodite Hills
+  country_code: CY
+- name: Penha Longa Resort
+  country_code: PT
+- name: Cabot Bordeaux
+  country_code: FR
+- name: Quinta do Lago
+  country_code: PT
+- name: Vilamoura Golf
+  country_code: PT
+- name: Le Château de Taulane
+  country_code: FR
+- name: Palheiro Golf
+  country_code: PT
+- name: Peralada
+  country_code: ES
+- name: Quinta da Ria
+  country_code: PT
+- name: Amendoeira Golf Resort
+  country_code: PT
+- name: La Finca
+  country_code: ES
+- name: Chateau Augerville
+  country_code: FR
+- name: Royal Óbidos Spa & Golf Resort
+  country_code: PT
+- name: Oitavos Dunes
+  country_code: PT
+- name: Arabella Golf Mallorca
+  country_code: ES
+- name: Château des Vigiers
+  country_code: FR
+- name: Palmares Ocean Living & Golf
+  country_code: PT
+- name: Le Touquet Resort
+  country_code: FR
+- name: Golf Club Castelconturbia
+  country_code: IT
+- name: Vale do Lobo
+  country_code: PT
+- name: Melia Villaitana
+  country_code: ES
+- name: Golf de Saint Endréol
+  country_code: FR
+- name: Dolce CampoReal Lisboa
+  country_code: PT
+- name: The Celtic Manor Resort
+  country_code: GB
+- name: Argentario Golf Resort
+  country_code: IT
+- name: Barceló Montecastillo Golf
+  country_code: ES
+- name: Zala Springs Golf Resort
+  country_code: HU
+- name: Robinson Golf Club Nobilis
+  country_code: TR
+- name: Vidago Palace
+  country_code: PT
+- name: Sueno Golf Club
+  country_code: TR
+- name: Emporda
+  country_code: ES
+- name: Salobre Golf Resort Gran Canaria
+  country_code: ES
+- name: Abama
+  country_code: ES
+- name: La Cala Resort
+  country_code: ES
+- name: La Manga Club
+  country_code: ES
+- name: Cornelia Golf Resort
+  country_code: TR
+- name: Korineum
+  country_code: CY
+- name: Penati Golf Resort
+  country_code: SK
+- name: Modry Las
+  country_code: PL
+- name: Aroeira
+  country_code: PT
+- name: Pirin Golf
+  country_code: BG
+- name: Grado Golf
+  country_code: IT
+- name: Morgado Golf Resort
+  country_code: PT
+- name: Lighthouse Golf Resort
+  country_code: BG
+- name: Antalya Golf Club
+  country_code: TR
+- name: Castiglion del Bosco
+  country_code: IT
+- name: Tecina
+  country_code: ES
+- name: Kaya Eagles
+  country_code: TR
+- name: Poggio Dei Medici
+  country_code: IT
+- name: Isla Canela
+  country_code: ES
+- name: Dolce Fregate
+  country_code: FR
+- name: Salgados
+  country_code: PT
+- name: Barbaroux
+  country_code: FR
+- name: Barcelona Golf Resort
+  country_code: ES
+- name: Son Antem
+  country_code: ES
+- name: Desert Springs
+  country_code: ES
+- name: Barseback
+  country_code: SE
+- name: Diamond Country Club
+  country_code: AT
+- name: Bad Ragaz
+  country_code: CH
+- name: Anfi Tauro
+  country_code: ES
+- name: Great Northern
+  country_code: DK
+- name: Dreamland
+  country_code: AZ
+- name: Kusadasi
+  country_code: TR
+- name: San Roque
+  country_code: ES
+- name: Vila Sol
+  country_code: PT
+- name: Lubker
+  country_code: DK
+- name: Palazzo Arzaga
+  country_code: IT
+- name: La Quinta Golf Resort
+  country_code: ES
+- name: Pula Golf
+  country_code: ES
+- name: Linna
+  country_code: FI
+- name: Titanic Golf
+  country_code: TR
+- name: Hotel du Golf Barriere
+  country_code: FR
+- name: Lofoten Links
+  country_code: "NO"
+- name: Pine Cliffs
+  country_code: PT
+- name: PGA National Sweden
+  country_code: SE
+- name: Kytaja
+  country_code: FI
+- name: Royal Bled
+  country_code: SI
+- name: Las Colinas
+  country_code: ES
+- name: San Domenico
+  country_code: IT
+- name: La Bagnaia
+  country_code: IT
+- name: Quinta da Marinha
+  country_code: PT
+- name: Bogogno
+  country_code: IT
+- name: Penina
+  country_code: PT
+- name: El Saler
+  country_code: ES
+- name: Dom Pedro
+  country_code: PT
+- name: Bandon Dunes
+  country_code: US
+- name: Pinehurst
+  country_code: US
+- name: Pebble Beach
+  country_code: US
+- name: Streamsong
+  country_code: US
+- name: Barnbougle Dunes
+  country_code: AU
+- name: Cabot Cape Breton
+  country_code: CA
+- name: Kiawah Island
+  country_code: US
+- name: Casa de Campo
+  country_code: DO
+- name: Fancourt
+  country_code: ZA
+- name: Adare Manor
+  country_code: IE
+- name: Sun City
+  country_code: ZA
+- name: Sand Valley
+  country_code: US
+- name: Rosapenna
+  country_code: IE
+- name: Diamante
+  country_code: MX
+- name: Sandy Lane
+  country_code: BB
+- name: Belle Mare Plage
+  country_code: MU
+- name: The American Club
+  country_code: US
+- name: Heritage Awali
+  country_code: MU
+- name: Fairmont Banff Springs
+  country_code: CA
+- name: Le Touessrok
+  country_code: MU
+- name: Fairmont Jasper Park
+  country_code: CA
+- name: The Broadmoor
+  country_code: US
+- name: Lemuria
+  country_code: SC
+- name: One&Only Palmilla
+  country_code: MX
+- name: Dubai Creek
+  country_code: AE
+- name: Sandals Emerald Bay
+  country_code: BS
+- name: Sea Island
+  country_code: US
+- name: Eden Roc
+  country_code: DO
+- name: The Greenbrier
+  country_code: US
+- name: Four Seasons Lanai
+  country_code: US
+- name: Carton House
+  country_code: IE
+- name: Half Moon
+  country_code: JM
+- name: Laucala Island
+  country_code: FJ
+- name: Yas Links
+  country_code: AE
+- name: Anahita
+  country_code: MU
+- name: Le Paradis
+  country_code: MU
+- name: Atlantis Paradise Island
+  country_code: BS
+- name: Michlifen
+  country_code: MA
+- name: La Quinta Resort & Club
+  country_code: US
+- name: Ardfin
+  country_code: GB
+- name: Sandals St Lucia
+  country_code: LC
+- name: Westin Abu Dhabi
+  country_code: AE
+- name: Four Seasons Hualalai
+  country_code: US
+- name: Reynolds Lake Oconee
+  country_code: US
+- name: Sandals Ochi
+  country_code: JM
+- name: Pueblo Bonito
+  country_code: MX
+- name: Lough Erne
+  country_code: GB
+- name: Grand Wailea
+  country_code: US
+- name: Mazagan Beach Resort
+  country_code: MA
+- name: Mount Juliet
+  country_code: IE
+- name: Shangri-La Hambantota
+  country_code: LK
+- name: The Grove
+  country_code: GB
+- name: Laguna Phuket
+  country_code: TH
+- name: Druids Glen
+  country_code: IE
+- name: Te Arai Links
+  country_code: NZ
+- name: Old Course Hotel
+  country_code: GB
+- name: Omni Homestead
+  country_code: US
+- name: French Lick
+  country_code: US
+- name: The Belfry
   country_code: GB
 - name: Cameron House
   country_code: GB
-- name: Loch Lomond
-  country_code: GB
-- name: Celtic Manor Resort
-  country_code: GB
-  homepage_url: https://www.celtic-manor.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: St Pierre Marriott Hotel & Country Club
-  country_code: GB
-- name: Dalmahoy Hotel & Country Club
-  country_code: GB
+- name: Four Seasons Troon North
+  country_code: US
+- name: Ritz-Carlton Dove Mountain
+  country_code: US
+- name: The Highlands
+  country_code: US
+- name: Banyan Tree Lang Co
+  country_code: VN
+- name: Big Cedar Lodge
+  country_code: US
+- name: Somabay
+  country_code: EG
+- name: Taghazout Bay
+  country_code: MA
+- name: La Hacienda
+  country_code: ES
+- name: Royal Palm Marrakech
+  country_code: MA
 - name: Trump International Scotland
   country_code: GB
-- name: Blairgowrie Golf Club
-  country_code: GB
-- name: Woburn Golf Club
-  country_code: GB
-- name: The Grove
-  country_code: GB
-- name: Adare Manor
-  country_code: IE
-  homepage_url: https://www.adaremanor.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Old Head of Kinsale
-  country_code: IE
-- name: Druids Glen Hotel & Golf Resort
-  country_code: IE
-- name: Mount Juliet Estate
-  country_code: IE
-  homepage_url: https://www.mountjuliet.ie/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Ballyliffin Lodge & Spa
-  country_code: IE
-- name: Fota Island Resort
-  country_code: IE
-- name: The K Club
-  country_code: IE
-  homepage_url: https://www.kclub.ie/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Trump International Doonbeg
-  country_code: IE
-- name: Portmarnock Hotel & Golf Links
-  country_code: IE
-- name: Rosapenna Hotel & Golf Resort
-  country_code: IE
-- name: Lough Erne Resort
-  country_code: GB
-- name: Carton House
-  country_code: IE
-- name: Terre Blanche
-  country_code: FR
-- name: Le Golf National
-  country_code: FR
-  homepage_url: https://www.golf-national.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Evian Resort
-  country_code: FR
-- name: Golf du Medoc Resort
-  country_code: FR
-  homepage_url: https://www.golf-du-medoc.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Domaine de Divonne
-  country_code: FR
-- name: Les Bordes
-  country_code: FR
-- name: Royal Mougins Golf Resort
-  country_code: FR
-- name: Chateau des Vigiers
-  country_code: FR
-- name: Golf de Chantilly
-  country_code: FR
-  homepage_url: https://www.golfchantilly.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Le Touquet Golf Resort
-  country_code: FR
-- name: Argentario Golf Resort & Spa
-  country_code: IT
-- name: Il Picciolo Golf Resort
-  country_code: IT
-- name: Marco Simone Golf & Country Club
-  country_code: IT
-  homepage_url: https://www.marcosimone.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Verdura Resort
-  country_code: IT
-  homepage_url: https://www.verduraresort.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Castello di Casole
-  country_code: IT
-- name: Donnafugata Golf Resort
-  country_code: IT
-- name: Gut Laerchenhof
-  country_code: DE
-- name: Fontana Golfclub
-  country_code: DE
-- name: A-Rosa Scharmuetzelsee
-  country_code: DE
-- name: Hardenberg GolfResort
-  country_code: DE
-- name: Schloss Fuschl Resort
-  country_code: AT
-- name: Stanglwirt
-  country_code: AT
-- name: Crans-sur-Sierre Golf Club
-  country_code: CH
-- name: Golfpark Migros Oberkirch
-  country_code: CH
-- name: Kennemer Golf & Country Club
-  country_code: NL
-  homepage_url: https://www.kennemer.nl/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Zoute Golf Club
-  country_code: BE
-- name: Bro Hof Slott
-  country_code: SE
-- name: Halmstad Golfklubb
-  country_code: SE
-- name: Ljunghusens Golfklubb
-  country_code: SE
-- name: Lofoten Links
-  country_code: 'NO'
-  homepage_url: https://www.lofotenlinks.no/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Ekerum Resort Oland
-  country_code: SE
-- name: Maxx Royal Belek
-  country_code: TR
-- name: Cornelia Diamond Golf Resort
-  country_code: TR
-- name: Regnum Carya Golf & Spa Resort
-  country_code: TR
-- name: Kaya Palazzo Golf Resort
-  country_code: TR
-- name: Gloria Serenity Resort
-  country_code: TR
-- name: Lykia Links Golf Course
-  country_code: TR
-- name: Costa Navarino
-  country_code: GR
-  homepage_url: https://www.costanavarino.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Porto Carras Grand Resort
-  country_code: GR
-- name: Aphrodite Hills Resort
-  country_code: CY
-  homepage_url: https://www.aphroditehills.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Minthis Hills
-  country_code: CY
-- name: Arnarstapi Golf Club
-  country_code: IS
-- name: Royal Golf Dar Es Salam
-  country_code: MA
-- name: Michlifen Ifrane Suites & Spa
-  country_code: MA
-- name: Assoufid Golf Club
-  country_code: MA
-- name: Karlstejn Golf Resort
-  country_code: CZ
-- name: Albatross Golf Resort
-  country_code: CZ
-- name: Pannonia Golf & Country Club
-  country_code: HU
-- name: Rosa Private Golf Club
-  country_code: PL
-- name: Binowo Park Golf Club
-  country_code: PL
-- name: Lubker Golf Resort
-  country_code: DK
-- name: Himmerland Golf & Spa Resort
-  country_code: DK
-- name: Ruka Golf
-  country_code: FI
-- name: Linna Golf
-  country_code: FI
-- name: Royal Malta Golf Club
-  country_code: MT
-- name: Thracian Cliffs Golf & Beach Resort
-  country_code: BG
-- name: BlackSeaRama Golf Club
-  country_code: BG
-- name: Four Seasons Resort Marrakech
-  country_code: MA
-  homepage_url: https://www.fourseasons.com/marrakech
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Hotel Villa Padierna
-  country_code: ES
-  homepage_url: https://www.villapadierna.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Golf Son Gual
-  country_code: ES
-  homepage_url: https://www.golfsonmuntaner.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Dom Pedro Victoria Golf Course
+- name: Apes Hill
+  country_code: BB
+- name: Ombria Algarve
   country_code: PT
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-  homepage_url: https://www.dompedro.com/
-- name: Golf & Spa Resort Sveti Martin
-  country_code: HR
-  homepage_url: https://www.golf-resort-svetimartin.hr
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Vila Sol Golf Resort
-  country_code: PT
-  homepage_url: https://www.vilasol.pt
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Robinson Club Nobilis
-  country_code: TR
-  homepage_url: https://www.robinson.com/nobilis-belek
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Terre Blanche Hotel Spa Golf Resort
-  country_code: FR
-  homepage_url: https://www.terre-blanche.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Donnafugata Golf Resort & Spa
-  country_code: IT
-  homepage_url: https://www.donnafugata.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Hotel Golf Château de Chailly
-  country_code: FR
-  homepage_url: https://www.chailly.com
-  source_urls:
-  - https://www.todays-golfer.com/courses/best/golf-resorts-in-continental-europe/
-- name: Four Seasons Resort Carmelo
-  country_code: UY
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Aphrodite Hills
-  country_code: CY
-  homepage_url: https://www.aphroditehills.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: The Lodge at Ashford Castle
-  country_code: IE
-  homepage_url: https://www.ashfordcastle.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Druids Glen Resort
-  country_code: IE
-  homepage_url: https://www.druidsglenresort.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Hotel Villa Padierna Palace
-  country_code: ES
-  homepage_url: https://www.villapadierna.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Son Gual
-  country_code: ES
-  homepage_url: https://www.songual.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Dom Pedro Golf Collection
-  country_code: PT
-  homepage_url: https://www.dompedrogolf.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Oceanico Golf
-  country_code: PT
-  homepage_url: https://www.oceanicogolf.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: La Reserva Club de Golf
-  country_code: ES
-  homepage_url: https://www.lareservaclub.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: Royal Obidos Golf Resort
-  country_code: PT
-  homepage_url: https://www.royalobidos.com
-  source_urls:
-  - https://www.golfmonthly.com/features/the-best-golf-resorts-in-europe
-- name: The Belfry
-  country_code: GB
-  homepage_url: https://www.thebelfry.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: St Andrews Links
-  country_code: GB
-  homepage_url: https://www.standrews.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Carnoustie Golf Links
-  country_code: GB
-  homepage_url: https://www.carnoustiegolflinks.co.uk/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Turnberry
-  country_code: GB
-  homepage_url: https://www.turnberry.co.uk/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Troon
-  country_code: GB
-  homepage_url: https://www.royaltroon.co.uk/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Muirfield
-  country_code: GB
-  homepage_url: https://www.muirfield.org.uk/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Birkdale
-  country_code: GB
-  homepage_url: https://www.royalbirkdale.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Liverpool
-  country_code: GB
-  homepage_url: https://www.royal-liverpool-golf.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Lytham & St Annes
-  country_code: GB
-  homepage_url: https://www.royallytham.org/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal St George's
-  country_code: GB
-  homepage_url: https://www.royalstgeorges.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Trump International Golf Links Scotland
-  country_code: GB
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Kingsbarns Golf Links
-  country_code: GB
-  homepage_url: https://www.kingsbarns.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Dornoch
-  country_code: GB
-  homepage_url: https://www.royaldornoch.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Aberdeen
-  country_code: GB
-  homepage_url: https://www.royalaberdeengolf.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Portrush
-  country_code: GB
-  homepage_url: https://www.royalportrushgolfclub.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal County Down
-  country_code: GB
-  homepage_url: https://www.royalcountydown.org/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Ballybunion
-  country_code: IE
-  homepage_url: https://www.ballybuniongolfclub.ie/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Lahinch Golf Club
-  country_code: IE
-  homepage_url: https://www.lahinchgolf.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Waterville Golf Links
-  country_code: IE
-  homepage_url: https://www.watervillegolflinks.ie/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Portmarnock Golf Club
-  country_code: IE
-  homepage_url: https://www.portmarnockgolfclub.ie/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: The European Club
-  country_code: IE
-  homepage_url: https://www.theeuropeanclub.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Old Head Golf Links
-  country_code: IE
-  homepage_url: https://www.oldhead.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Doonbeg Golf Club
-  country_code: IE
-  homepage_url: https://www.doonbeggolf.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Hague
-  country_code: NL
-  homepage_url: https://www.royalhaagsche.nl/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Noordwijkse Golf Club
-  country_code: NL
-  homepage_url: https://www.ngc.nl/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Waterloo
-  country_code: BE
-  homepage_url: https://www.golfclubwaterloo.be/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Antwerp
-  country_code: BE
-  homepage_url: https://www.ragc.be/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Zoute
-  country_code: BE
-  homepage_url: https://www.zoute.be/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf de Sperone
-  country_code: FR
-  homepage_url: https://www.sperone.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf de Morfontaine
-  country_code: FR
-  homepage_url: https://www.morfontaine.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Les Bordes Golf International
-  country_code: FR
-  homepage_url: https://www.lesbordes.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club de Chiberta
-  country_code: FR
-  homepage_url: https://www.chiberta.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Evian Resort Golf Club
-  country_code: FR
-  homepage_url: https://www.evianresort.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf de Hossegor
-  country_code: FR
-  homepage_url: https://www.golfdehossegor.fr/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf de Biarritz
-  country_code: FR
-  homepage_url: https://www.golfbiarritz.fr/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf de Saint-Nom-la-Bretèche
-  country_code: FR
-  homepage_url: https://www.golfsaintnomlabreteche.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Club de Golf Valderrama
-  country_code: ES
-  homepage_url: https://www.valderrama.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Real Club de Golf Sotogrande
-  country_code: ES
-  homepage_url: https://www.golfsotogrande.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Finca Cortesin Golf Club
-  country_code: ES
-  homepage_url: https://www.fincacortesin.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Real Sociedad Hípica Española Club de Campo
-  country_code: ES
-  homepage_url: https://www.rshe.es/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Club de Golf de la Herrería
-  country_code: ES
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Real Club Pineda de Sevilla
-  country_code: ES
-  homepage_url: https://www.pinedadesevilla.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Club de Golf Las Brisas
-  country_code: ES
-  homepage_url: https://www.lasbrisas.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Real Club de Golf de San Sebastián
-  country_code: ES
-  homepage_url: https://www.rcgsansebastian.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Praia D'El Rey Golf & Beach Resort
-  country_code: PT
-  homepage_url: https://www.praia-del-rey.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: West Cliffs Golf Links
-  country_code: PT
-  homepage_url: https://www.westcliffs.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Obidos Spa & Golf Resort
-  country_code: PT
-  homepage_url: https://www.royalobidos.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Club zur Vahr
-  country_code: DE
-  homepage_url: https://www.club-zur-vahr.de/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club St. Leon-Rot
-  country_code: DE
-  homepage_url: https://www.gc-stleonrot.de/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golfclub München Eichenried
-  country_code: DE
-  homepage_url: https://www.gc-eichenried.de/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club Crans-sur-Sierre
-  country_code: CH
-  homepage_url: https://www.golfcrans.ch/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club Bad Ragaz
-  country_code: CH
-  homepage_url: https://www.golfbadragaz.ch/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golfclub Crans Montana
-  country_code: CH
-  homepage_url: https://www.golfcrans.ch/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club Biella Le Betulle
-  country_code: IT
-  homepage_url: https://www.golfbiella.it/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Circolo Golf Villa d'Este
-  country_code: IT
-  homepage_url: https://www.golfvilladeste.it/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club Castelconturbia
-  country_code: IT
-  homepage_url: https://www.castelconturbia.it/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Circolo Golf Pevero
-  country_code: IT
-  homepage_url: https://www.golfpevero.it/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club Milano
-  country_code: IT
-  homepage_url: https://www.golfclubmilano.it/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Is Molas Golf
-  country_code: IT
-  homepage_url: https://www.ismolas.it/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Gardagolf Country Club
-  country_code: IT
-  homepage_url: https://www.gardagolf.it/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club Udine
-  country_code: IT
-  homepage_url: https://www.golfudine.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Falkensteiner Golf Club
-  country_code: AT
-  homepage_url: https://www.falkensteiner.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf & Country Club Semmering
-  country_code: AT
-  homepage_url: https://www.gc-semmering.at/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Bro Hof Slott Golf Club
-  country_code: SE
-  homepage_url: https://www.brohofslott.se/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Ljunghusen Golf Club
-  country_code: SE
-  homepage_url: https://www.ljunghusen.se/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Falsterbo Golf Club
-  country_code: SE
-  homepage_url: https://www.falsterbogk.se/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Oslo Golf Club
-  country_code: 'NO'
-  homepage_url: https://www.oslogolfklubb.no/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Royal Copenhagen Golf Club
-  country_code: DK
-  homepage_url: https://www.kgk.dk/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Rungsted Golf Club
-  country_code: DK
-  homepage_url: https://www.rungstedgolfklub.dk/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Helsingin Golf Club
-  country_code: FI
-  homepage_url: https://www.helsingingolfklubi.fi/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Golf Club Ypsonas
-  country_code: CY
-  homepage_url: https://www.golfypsonas.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Aphrodite Hills Golf Club
-  country_code: CY
-  homepage_url: https://www.aphroditehills.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Secret Valley Golf Club
-  country_code: CY
-  homepage_url: https://www.secretvalley.com.cy/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Minthis Hills Golf Club
-  country_code: CY
-  homepage_url: https://www.minthis.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Elea Golf Club
-  country_code: CY
-  homepage_url: https://www.eleagolf.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Victoria Golf Club
-  country_code: CY
-  homepage_url: https://www.victoriagolf.com.cy/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Vikla Golf & Country Club
-  country_code: CY
-  homepage_url: https://www.viklagolf.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Crete Golf Club
-  country_code: GR
-  homepage_url: https://www.cretegolf.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-- name: Porto Carras Golf Club
-  country_code: GR
-  homepage_url: https://www.portocarrasgolf.com/
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-resorts-europe
-courses:
-- name: Old Course, St Andrews
-  country_code: GB
-  url: https://www.standrews.com/play/courses/old-course
-- name: New Course, St Andrews
-  country_code: GB
-- name: Jubilee Course, St Andrews
-  country_code: GB
-- name: Carnoustie Golf Links
-  country_code: GB
-- name: Muirfield (The Honourable Company of Edinburgh Golfers)
-  country_code: GB
-- name: Royal Troon Golf Club
-  country_code: GB
-- name: Prestwick Golf Club
-  country_code: GB
-  homepage_url: https://www.prestwickgc.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: North Berwick Golf Club
-  country_code: GB
-- name: Royal County Down
-  country_code: GB
-- name: Royal Portrush Golf Club
-  country_code: GB
-  homepage_url: https://www.royalportrushgolfclub.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Portmarnock Golf Club
-  country_code: IE
-  homepage_url: https://www.portmarnockgolfclub.ie
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Ballybunion Golf Club
-  country_code: IE
-- name: Lahinch Golf Club
-  country_code: IE
-- name: The European Club
-  country_code: IE
-  homepage_url: https://www.theeuropeanclub.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Waterville Golf Links
-  country_code: IE
-  homepage_url: https://www.watervillegolflinks.ie
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Tralee Golf Club
-  country_code: IE
-- name: Sunningdale Old Course
-  country_code: GB
-- name: Wentworth West Course
-  country_code: GB
-- name: Royal Birkdale Golf Club
-  country_code: GB
-  homepage_url: https://www.royalbirkdale.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal St George's Golf Club
-  country_code: GB
-  homepage_url: https://www.royalstgeorges.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal County Down Golf Club
-  country_code: GB
-  homepage_url: https://www.royalcountydown.org
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: The Old Course at St Andrews
-  country_code: GB
-  homepage_url: https://www.standrews.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal Dornoch Golf Club
-  country_code: GB
-  homepage_url: https://www.royaldornoch.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Muirfield
-  country_code: GB
-  homepage_url: https://www.muirfield.org.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Turnberry (Ailsa Course)
-  country_code: GB
-  homepage_url: https://www.turnberry.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Ballybunion Golf Club (Old Course)
-  country_code: IE
-  homepage_url: https://www.ballybuniongolfclub.ie
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Carnoustie Golf Links (Championship Course)
-  country_code: GB
-  homepage_url: https://www.carnoustiegolflinks.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal Troon Golf Club (Old Course)
-  country_code: GB
-  homepage_url: https://www.royaltroon.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Trump International Golf Links Scotland
-  country_code: GB
-  homepage_url: https://www.trumpgolfscotland.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal Liverpool Golf Club
-  country_code: GB
-  homepage_url: https://www.royal-liverpool-golf.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Lahinch Golf Club (Old Course)
-  country_code: IE
-  homepage_url: https://www.lahinchgolf.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal Lytham & St Annes Golf Club
-  country_code: GB
-  homepage_url: https://www.royallytham.org
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Kingsbarns Golf Links
-  country_code: GB
-  homepage_url: https://www.kingsbarns.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal Aberdeen Golf Club (Balgownie Links)
-  country_code: GB
-  homepage_url: https://www.royalaberdeengolf.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Cruden Bay Golf Club
-  country_code: GB
-  homepage_url: https://www.crudenbaygolfclub.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Castle Stuart Golf Links
-  country_code: GB
-  homepage_url: https://www.castlestuartgolf.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal Porthcawl Golf Club
-  country_code: GB
-  homepage_url: https://www.royalporthcawl.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: North Berwick Golf Club (West Links)
-  country_code: GB
-  homepage_url: https://www.northberwickgolfclub.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Old Head Golf Links
-  country_code: IE
-  homepage_url: https://www.oldheadgolflinks.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Trump Turnberry (King Robert the Bruce)
-  country_code: GB
-  homepage_url: https://www.turnberry.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Machrihanish Golf Club
-  country_code: GB
-  homepage_url: https://www.machgolf.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: The Island Golf Club
-  country_code: IE
-  homepage_url: https://www.theislandgolfclub.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Gullane Golf Club (No. 1 Course)
-  country_code: GB
-  homepage_url: https://www.gullanegolfclub.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal Cinque Ports Golf Club
-  country_code: GB
-  homepage_url: https://www.royalcinqueports.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: County Sligo Golf Club (Rosses Point)
-  country_code: IE
-  homepage_url: https://www.countysligogolfclub.ie
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Saunton Golf Club (East Course)
-  country_code: GB
-  homepage_url: https://www.sauntongolf.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
 - name: Dundonald Links
   country_code: GB
-  homepage_url: https://www.dundonaldlinks.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Nefyn & District Golf Club
+- name: Golfclub Zillertal Uderns
+  country_code: AT
+- name: Golf Eichenheim
+  country_code: AT
+- name: MINTHIS Golf Club
+  country_code: CY
+- name: La Reserva Club Sotogrande
+  country_code: ES
+- name: The Crete Golf Club
+  country_code: GR
+- name: Buenavista Golf
+  country_code: ES
+- name: Gut Kaden Golf und Land Club
+  country_code: DE
+- name: Domaine De Manville
+  country_code: FR
+- name: Hardenberg GolfResort
+  country_code: DE
+- name: The Machrie Hotel & Golf Links
   country_code: GB
-  homepage_url: https://www.nefyn-golf.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Western Gailes Golf Club
+- name: Golf De L'Isle Adam
+  country_code: FR
+- name: Golf Las Americas
+  country_code: ES
+- name: Golf & Country Club Lauswolt
+  country_code: NL
+- name: Lopesan Meloneras Golf
+  country_code: ES
+- name: Golf Club Lignano
+  country_code: IT
+- name: Boavista Golf & Spa Resort
+  country_code: PT
+- name: Fairplay Golf & Spa Resort
+  country_code: ES
+- name: Trevose Golf & Country Club
   country_code: GB
-  homepage_url: https://www.westerngailes.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Brora Golf Club
-  country_code: GB
-  homepage_url: https://www.broragolf.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: County Louth Golf Club (Baltray)
+- name: Powerscourt Golf Club
   country_code: IE
-  homepage_url: https://www.countylouthgolfclub.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal West Norfolk Golf Club
-  country_code: GB
-  homepage_url: https://www.rwngc.org
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Pennard Golf Club
-  country_code: GB
-  homepage_url: https://www.pennardgolfclub.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal North Devon Golf Club (Westward Ho!)
-  country_code: GB
-  homepage_url: https://www.royalnorthdevongolfclub.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Portmarnock Hotel & Golf Links
+- name: Kikuoka Country Club
+  country_code: LU
+- name: Golf de Falgos
+  country_code: FR
+- name: Golfclub St. Wendel
+  country_code: DE
+- name: Golf Club San Vigilio
+  country_code: IT
+- name: Kaya Palazzo Golf Club
+  country_code: TR
+- name: Sicilia's Picciolo Etna Golf
+  country_code: IT
+- name: Castro Marim Golfe and Country Club
+  country_code: PT
+- name: El Rompido Golf & Beach Resort
+  country_code: ES
+- name: Le Golf Parc Robert Hersant
+  country_code: FR
+- name: Donau Golf Club Passau-Raßbach
+  country_code: DE
+- name: Fürstliches Golf-Resort Bad Waldsee
+  country_code: DE
+- name: TorreMirona Golf & Spa Resort
+  country_code: ES
+- name: Islantilla Golf Resort
+  country_code: ES
+- name: Le Golf National
+  country_code: FR
+- name: Valle del Este Golf Resort
+  country_code: ES
+- name: Naxhelet Golf Club
+  country_code: BE
+- name: Golf De La Bretesche
+  country_code: FR
+- name: Acaya Golf Resort & Spa
+  country_code: IT
+- name: Portmarnock Resort and Jameson Golf Links
   country_code: IE
-  homepage_url: https://www.portmarnock.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Conwy Golf Club (Caernarvonshire)
-  country_code: GB
-  homepage_url: https://www.conwygolfclub.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Hunstanton Golf Club
-  country_code: GB
-  homepage_url: https://www.hunstantongolfclub.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Trevose Golf & Country Club (Championship Course)
-  country_code: GB
-  homepage_url: https://www.trevose-gc.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Machrihanish Dunes Golf Club
-  country_code: GB
-  homepage_url: https://www.machrihanishdunes.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Burnham & Berrow Golf Club (Championship Course)
-  country_code: GB
-  homepage_url: https://www.burnhamandberrowgc.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Doonbeg Golf Club
-  country_code: IE
-  homepage_url: https://www.trumphotels.com/trump-international-doonbeg-ireland
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Dooks Golf Links
-  country_code: IE
-  homepage_url: https://www.dooks.com
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
-- name: Royal St David's Golf Club
-  country_code: GB
-  homepage_url: https://www.royalstdavids.co.uk
-  source_urls:
-  - https://www.top100golfcourses.com/top-100-golf-courses-britain-and-ireland
+- name: Golf Barrière Deauville
+  country_code: FR
+- name: Alhaurín Golf Resort
+  country_code: ES
+courses: []

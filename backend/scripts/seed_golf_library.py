@@ -49,7 +49,7 @@ from app.database import TripsSessionLocal, init_trips_db  # noqa: E402
 from app.golf import crud, extraction, fetcher  # noqa: E402,F401
 from app.text_utils import normalize_name  # noqa: E402
 
-SEED_PATH = _BACKEND_ROOT / "app" / "seed_data" / "golf_library_seed.yaml"
+SEED_PATH = _BACKEND_ROOT / "app" / "golf" / "seed_data" / "golf_library_seed.yaml"
 PAUSE_BETWEEN_S = 1.5
 
 
@@ -224,7 +224,7 @@ def _merge_entries(existing: list[dict], new_entries: list[dict]) -> tuple[int, 
 
 
 def _resort_exists(db, name: str, country_code: str) -> bool:
-    from app import models
+    from app.golf import models
 
     norm = normalize_name(name)
     return (
@@ -239,7 +239,7 @@ def _resort_exists(db, name: str, country_code: str) -> bool:
 
 
 def _course_exists(db, name: str, country_code: str) -> bool:
-    from app import models
+    from app.golf import models
 
     norm = normalize_name(name)
     return (

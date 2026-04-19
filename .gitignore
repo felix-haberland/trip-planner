@@ -7,6 +7,11 @@ venv/
 dist/
 build/
 *.db
+# Bundled read-only VacationMap data (shipped with the deploy)
+!backend/data/vacation.db
+# One-shot trips.db seed for first-boot on fresh deploys (copied to
+# TRIPS_DB_PATH if the target doesn't exist yet)
+!backend/data/trips.seed.db
 .env
 .env.local
 .env.production

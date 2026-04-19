@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -16,9 +17,16 @@ TripsSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=trips_e
 TripsBase = declarative_base()
 
 # === VacationMap database (read-only) ===
-VACATIONMAP_DB_PATH = os.environ.get(
-    "VACATIONMAP_DB_PATH",
-    os.path.expanduser("~/Documents/VacationMap/backend/vacation.db"),
+# Prefer VACATIONMAP_DB_PATH env var (explicit). Otherwise: use the copy
+# bundled at `backend/data/vacation.db` (shipped with the Railway deploy);
+# if that doesn't exist (local dev without a bundled copy), fall back to
+# the companion VacationMap repo in the user's Documents folder.
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_BUNDLED_VACATIONMAP = _BACKEND_DIR / "data" / "vacation.db"
+VACATIONMAP_DB_PATH = os.environ.get("VACATIONMAP_DB_PATH") or (
+    str(_BUNDLED_VACATIONMAP)
+    if _BUNDLED_VACATIONMAP.is_file()
+    else os.path.expanduser("~/Documents/VacationMap/backend/vacation.db")
 )
 vacationmap_engine = create_engine(
     f"sqlite:///{VACATIONMAP_DB_PATH}",
@@ -29,6 +37,26 @@ vacationmap_engine = create_engine(
 VacationMapSessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=vacationmap_engine
 )
+
+
+_BUNDLED_TRIPS_SEED = _BACKEND_DIR / "data" / "trips.seed.db"
+
+
+def _ensure_trips_db_seeded():
+    """First-boot only: if TRIPS_DB_PATH doesn't exist yet AND a bundled seed
+    DB ships with the deploy, copy it into place so a fresh Railway volume
+    starts with the curated golf library + sample data. No-op once the target
+    file exists (we never overwrite user data).
+    """
+    import shutil
+
+    target = Path(TRIPS_DB_PATH)
+    if target.exists():
+        return
+    if not _BUNDLED_TRIPS_SEED.is_file():
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(_BUNDLED_TRIPS_SEED, target)
 
 
 def init_trips_db():
@@ -42,6 +70,10 @@ def init_trips_db():
     from .trips import models as _trip_models  # noqa: F401 — register trip models
     from .golf import models as _golf_models  # noqa: F401 — register golf models
     from .yearly import models as _yearly_models  # noqa: F401 — spec 007
+
+    # Seed a fresh DB from the bundled snapshot on first boot (no-op if the
+    # target exists). Runs before migrations so they apply to the seeded data.
+    _ensure_trips_db_seeded()
 
     # Spec 007: rebuild the legacy `conversations` table (trip_id NOT NULL FK)
     # into the polymorphic (owner_type, owner_id) shape if needed. SQLite
