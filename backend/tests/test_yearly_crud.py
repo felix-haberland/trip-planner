@@ -70,6 +70,39 @@ def test_create_year_plan_seeds_main_conversation(trips_session):
     assert len(convs) == 1 and convs[0].name == "Main"
 
 
+def test_shrinking_windows_deletes_orphan_slots(trips_session):
+    """F013: when windows shrinks, slots at out-of-range indices are deleted.
+
+    Without this, slot.window_index would point at a non-existent window.
+    """
+    from app.yearly import crud, models, schemas
+
+    plan = _plan(trips_session)  # 3 windows
+    opt = _option(trips_session, plan.id)
+    _slot(trips_session, opt.id, window_index=0, label="keep")
+    _slot(trips_session, opt.id, window_index=2, label="orphan when window #2 goes")
+
+    # Shrink to 2 windows.
+    crud.update_year_plan(
+        trips_session,
+        plan.id,
+        schemas.YearPlanUpdate(
+            windows=[
+                schemas.WindowSpec(
+                    start_date=date(2026, 6, 5), end_date=date(2026, 6, 19)
+                ),
+                schemas.WindowSpec(
+                    start_date=date(2026, 9, 8), end_date=date(2026, 9, 18)
+                ),
+            ]
+        ),
+    )
+
+    remaining = trips_session.query(models.Slot).all()
+    assert len(remaining) == 1
+    assert remaining[0].label == "keep"
+
+
 def test_year_plan_windows_roundtrip(trips_session):
     from app.yearly import crud, schemas
 

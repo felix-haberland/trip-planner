@@ -105,6 +105,14 @@ def update_year_plan(
     if body.activity_weights is not None:
         plan.activity_weights = json.dumps(body.activity_weights)
     if body.windows is not None:
+        # F013: if windows shrinks, delete slots pointing at now-invalid
+        # indices so the schema stays consistent (window_index is NOT NULL
+        # and must reference a valid window).
+        new_count = len(body.windows)
+        for option in plan.options:
+            for slot in list(option.slots):
+                if slot.window_index is not None and slot.window_index >= new_count:
+                    db.delete(slot)
         plan.windows = _dump_windows(body.windows)
     if body.status is not None:
         if body.status not in ("draft", "archived"):

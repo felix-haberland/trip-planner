@@ -1422,6 +1422,11 @@
                     <div class="year-section-header">
                         <h3>Year options</h3>
                         <div class="year-section-actions">
+                            <button v-if="hasFocusedOptions()" class="btn btn-small btn-focus-clear"
+                                    @click="clearOptionFocus"
+                                    title="Show all options again">
+                                Focused on {{ focusedOptionIds.size }} — show all
+                            </button>
                             <button v-if="(currentYearPlan.options || []).some(o => o.status === 'excluded')"
                                     class="btn btn-small" @click="toggleShowExcludedOptions">
                                 {{ showExcludedOptions ? 'Hide' : 'Show' }} excluded
@@ -1456,7 +1461,7 @@
 
                             <!-- Option rows -->
                             <template v-for="opt in currentYearPlan.options" :key="'r-'+opt.id">
-                                <template v-if="opt.status !== 'excluded' || showExcludedOptions">
+                                <template v-if="shouldShowOption(opt)">
                                 <!-- Option row header -->
                                 <div class="grid-cell grid-option-header" :class="{ 'grid-row-excluded': opt.status === 'excluded' }">
                                     <div v-if="isEditingOptionField(opt, 'name')" class="inline-edit">
@@ -1489,6 +1494,12 @@
                                         <strong>Excluded:</strong> {{ opt.excluded_reason }}
                                     </p>
                                     <div class="opt-actions">
+                                        <button class="btn btn-small btn-focus"
+                                                :class="{ 'btn-focus-active': isOptionFocused(opt.id) }"
+                                                @click="toggleOptionFocus(opt.id)"
+                                                :title="isOptionFocused(opt.id) ? 'Unfocus' : 'Focus (hide other options)'">
+                                            {{ isOptionFocused(opt.id) ? '★' : '☆' }}
+                                        </button>
                                         <button v-if="opt.status !== 'excluded'" class="btn btn-small btn-exclude-opt" @click="excludeOption(opt)" title="Exclude with a reason">⊘</button>
                                         <button v-else class="btn btn-small" @click="unexcludeOption(opt)" title="Un-exclude">↩</button>
                                         <button v-if="opt.status === 'excluded'" class="btn btn-small btn-danger" @click="deleteOption(opt)" title="Delete">×</button>
@@ -1529,7 +1540,7 @@
                                         </div>
                                         <div v-else class="idea-card" :class="{ 'idea-proposed': idea.status === 'proposed' }">
                                             <div class="idea-header">
-                                                <strong>{{ idea.label || '(unnamed)' }}</strong>
+                                                <strong>{{ ideaDisplayName(idea) }}</strong>
                                                 <span v-if="idea.status !== 'open'" class="status-badge" :class="idea.status">{{ idea.status }}</span>
                                             </div>
                                             <p v-if="idea.theme" class="idea-theme">{{ idea.theme }}</p>
@@ -1605,7 +1616,7 @@
                                               v-for="idea in excludedIdeasInCell(opt, widx)" :key="'x-'+idea.id">
                                         <div class="idea-card idea-excluded">
                                             <div class="idea-header">
-                                                <strong>{{ idea.label || '(unnamed)' }}</strong>
+                                                <strong>{{ ideaDisplayName(idea) }}</strong>
                                                 <span class="status-badge excluded">excluded</span>
                                             </div>
                                             <p v-if="idea.theme" class="idea-theme">{{ idea.theme }}</p>
@@ -1715,6 +1726,21 @@
                             <button class="btn btn-primary btn-small"
                                     :disabled="!dialogCtx.count || dialogCtx.count < 1"
                                     @click="submitSuggestCell">Ask</button>
+                        </div>
+                    </template>
+
+                    <!-- Confirm: remove a window that has trip ideas -->
+                    <template v-else-if="dialogKind === 'confirmRemoveWindow'">
+                        <h3 class="dialog-title">Remove this window?</h3>
+                        <p class="dialog-hint">
+                            This window has {{ dialogCtx.affected.length }} trip idea(s) across your options. Removing it will delete those ideas when you save.
+                        </p>
+                        <ul class="dialog-list">
+                            <li v-for="(line, i) in dialogCtx.affected" :key="i">{{ line }}</li>
+                        </ul>
+                        <div class="dialog-actions">
+                            <button class="btn btn-small" @click="closeDialog">Cancel</button>
+                            <button class="btn btn-small btn-danger" @click="confirmRemoveWindowRow">Remove window</button>
                         </div>
                     </template>
 

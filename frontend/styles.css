@@ -1264,6 +1264,24 @@ header h1 { font-size: 1.2rem; font-weight: 600; }
     display: flex; gap: 8px; justify-content: flex-end;
     margin-top: 4px;
 }
+.dialog-list {
+    margin: 4px 0 8px 0; padding: 6px 10px;
+    max-height: 160px; overflow-y: auto;
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 5px;
+    font-size: 0.85rem; color: #374151; list-style: none;
+}
+.dialog-list li {
+    padding: 2px 0; border-bottom: 1px dashed #e5e7eb;
+}
+.dialog-list li:last-child { border-bottom: none; }
+
+/* Focus (compare subset) */
+.btn-focus { color: #9ca3af; }
+.btn-focus:hover { color: #6b7280; background: #f3f4f6; }
+.btn-focus-active { color: #eab308; }
+.btn-focus-active:hover { color: #ca8a04; }
+.btn-focus-clear { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.btn-focus-clear:hover { background: #fde68a; }
 
 .slot-form-inline { display: flex; flex-direction: column; gap: 4px; }
 .slot-form-inline input, .slot-form-inline select, .slot-form-inline textarea { font-size: 0.85rem; }

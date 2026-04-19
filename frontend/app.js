@@ -1302,16 +1302,7 @@ createApp({
             await reloadYearPlan();
         }
 
-        async function toggleArchiveYearPlan() {
-            const next = currentYearPlan.value.status === 'archived' ? 'draft' : 'archived';
-            await api(`/api/year-plans/${currentYearPlan.value.id}`, {
-                method: 'PATCH',
-                body: JSON.stringify({ status: next }),
-            });
-            await reloadYearPlan();
-        }
-
-        async function deleteYearPlan(planId, planName) {
+async function deleteYearPlan(planId, planName) {
             if (!confirm(`Permanently delete year plan "${planName}" and all its slots and conversations? Linked trips are kept. This cannot be undone.`)) return;
             await api(`/api/year-plans/${planId}?confirm=true`, { method: 'DELETE' });
             currentYearPlan.value = null;
@@ -1341,8 +1332,30 @@ createApp({
             draftWindows.value.push(_emptyWindow());
         }
 
+        function slotsReferencingWindow(windowIndex) {
+            const lines = [];
+            for (const opt of currentYearPlan.value?.options || []) {
+                for (const s of opt.slots || []) {
+                    if (s.window_index === windowIndex) {
+                        lines.push(`${opt.name} — ${s.label || 'unnamed'}`);
+                    }
+                }
+            }
+            return lines;
+        }
         function removeWindowRow(idx) {
-            draftWindows.value.splice(idx, 1);
+            const affected = slotsReferencingWindow(idx);
+            if (!affected.length) {
+                draftWindows.value.splice(idx, 1);
+                return;
+            }
+            dialogKind.value = 'confirmRemoveWindow';
+            dialogCtx.value = { windowIndex: idx, affected };
+        }
+        function confirmRemoveWindowRow() {
+            const { windowIndex } = dialogCtx.value;
+            draftWindows.value.splice(windowIndex, 1);
+            closeDialog();
         }
 
         async function saveWindows() {
@@ -1459,16 +1472,7 @@ createApp({
             await reloadYearPlan();
         }
 
-        async function archiveOption(opt) {
-            const next = opt.status === 'archived' ? 'draft' : 'archived';
-            await api(`/api/year-options/${opt.id}`, {
-                method: 'PATCH',
-                body: JSON.stringify({ status: next }),
-            });
-            await reloadYearPlan();
-        }
-
-        async function deleteOption(opt) {
+async function deleteOption(opt) {
             if (!confirm(`Delete option "${opt.name}" and its trip ideas? (Linked trips are kept.)`)) return;
             await api(`/api/year-options/${opt.id}?confirm=true`, { method: 'DELETE' });
             await reloadYearPlan();
@@ -1617,6 +1621,34 @@ createApp({
         const showExcludedOptions = ref(false);
         function toggleShowExcludedOptions() {
             showExcludedOptions.value = !showExcludedOptions.value;
+        }
+
+        // --- Option focus (compare subset) ---
+        const focusedOptionIds = ref(new Set());
+        function isOptionFocused(id) { return focusedOptionIds.value.has(id); }
+        function hasFocusedOptions() { return focusedOptionIds.value.size > 0; }
+        function toggleOptionFocus(optId) {
+            const s = new Set(focusedOptionIds.value);
+            if (s.has(optId)) s.delete(optId); else s.add(optId);
+            focusedOptionIds.value = s;
+        }
+        function clearOptionFocus() {
+            focusedOptionIds.value = new Set();
+        }
+        function shouldShowOption(opt) {
+            if (focusedOptionIds.value.size > 0 && !focusedOptionIds.value.has(opt.id)) return false;
+            return opt.status !== 'excluded' || showExcludedOptions.value;
+        }
+
+        // --- Display name fallback: label > window label > "Window #N" > "(unnamed)" ---
+        function ideaDisplayName(idea) {
+            if (idea.label) return idea.label;
+            const win = currentYearPlan.value?.windows?.[idea.window_index];
+            if (win?.label) return win.label;
+            if (idea.window_index !== null && idea.window_index !== undefined) {
+                return `Window #${idea.window_index + 1}`;
+            }
+            return '(unnamed)';
         }
 
         // --- Inline edit for YearPlan fields ---
@@ -1922,11 +1954,13 @@ createApp({
             yearActiveConversations,
             openYear, loadYearPlans, setYearFilter,
             createYearPlan, openYearPlan, reloadYearPlan, renameYearPlan,
-            editYearIntent, toggleArchiveYearPlan, deleteYearPlan,
+            editYearIntent, deleteYearPlan,
             startEditWindows, cancelEditWindows, addWindowRow, removeWindowRow, saveWindows, describeWindow,
             createOption, renameOption, editOptionSummary, forkOption,
-            markOptionChosen, unpickOption, excludeOption, unexcludeOption,
-            archiveOption, deleteOption,
+            markOptionChosen, unpickOption, excludeOption, unexcludeOption, deleteOption,
+            slotsReferencingWindow, confirmRemoveWindowRow,
+            focusedOptionIds, isOptionFocused, hasFocusedOptions,
+            toggleOptionFocus, clearOptionFocus, shouldShowOption, ideaDisplayName,
             ideasInCell, activeIdeasInCell, excludedIdeasInCell,
             startAddIdeaInCell, cancelAddSlot, saveNewSlot,
             startEditSlot, saveSlotEdit, cancelSlotEdit, deleteSlot,
