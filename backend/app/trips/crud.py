@@ -8,6 +8,9 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 
+# normalize_name was used by the golf library CRUD that lived in this file
+# pre-refactor; leaving the import out since trip CRUD doesn't use it.
+
 
 def _utcnow():
     return datetime.now(timezone.utc)
@@ -44,6 +47,8 @@ def update_trip(
         trip.description = update.description
     if update.status is not None:
         trip.status = update.status
+    if update.activity_weights is not None:
+        trip.activity_weights = json.dumps(update.activity_weights)
     trip.updated_at = _utcnow()
     db.commit()
     db.refresh(trip)
@@ -54,6 +59,18 @@ def delete_trip(db: Session, trip_id: int) -> bool:
     trip = get_trip(db, trip_id)
     if trip is None:
         return False
+    # Conversations live in a polymorphic table with no FK back to trip_plans,
+    # so cascade-on-delete has to be explicit here.
+    convs = (
+        db.query(models.Conversation)
+        .filter(
+            models.Conversation.owner_type == "trip",
+            models.Conversation.owner_id == trip_id,
+        )
+        .all()
+    )
+    for conv in convs:
+        db.delete(conv)
     db.delete(trip)
     db.commit()
     return True
@@ -83,6 +100,8 @@ def add_suggested(
     region_lookup_key: Optional[str] = None,
     scores_snapshot: Optional[dict] = None,
     pre_filled_exclude_reason: Optional[str] = None,
+    resort_id: Optional[int] = None,
+    course_id: Optional[int] = None,
 ) -> models.SuggestedDestination:
     dest = models.SuggestedDestination(
         trip_id=trip_id,
@@ -91,6 +110,8 @@ def add_suggested(
         ai_reasoning=ai_reasoning,
         scores_snapshot=json.dumps(scores_snapshot) if scores_snapshot else None,
         pre_filled_exclude_reason=pre_filled_exclude_reason,
+        resort_id=resort_id,
+        course_id=course_id,
     )
     db.add(dest)
     trip = get_trip(db, trip_id)
@@ -125,6 +146,8 @@ def move_suggested_to_shortlist(
         ai_reasoning=sug.ai_reasoning,
         scores_snapshot=sug.scores_snapshot,
         user_note=user_note,
+        resort_id=sug.resort_id,
+        course_id=sug.course_id,
     )
     db.add(dest)
     db.delete(sug)
@@ -149,6 +172,8 @@ def move_suggested_to_excluded(
         region_lookup_key=sug.region_lookup_key,
         reason=reason,
         ai_reasoning=sug.ai_reasoning,
+        resort_id=sug.resort_id,
+        course_id=sug.course_id,
     )
     db.add(dest)
     db.delete(sug)
@@ -239,6 +264,8 @@ def move_shortlisted_to_excluded(
         region_lookup_key=sl.region_lookup_key,
         reason=reason,
         ai_reasoning=sl.ai_reasoning,
+        resort_id=sl.resort_id,
+        course_id=sl.course_id,
     )
     db.add(dest)
     db.delete(sl)
@@ -263,6 +290,8 @@ def move_shortlisted_to_suggested(
         ai_reasoning=sl.ai_reasoning,
         scores_snapshot=sl.scores_snapshot,
         user_note=sl.user_note,
+        resort_id=sl.resort_id,
+        course_id=sl.course_id,
     )
     db.add(dest)
     db.delete(sl)
@@ -296,6 +325,8 @@ def move_excluded_to_shortlist(
         ai_reasoning=exc.ai_reasoning or "",
         scores_snapshot=None,
         user_note=user_note,
+        resort_id=exc.resort_id,
+        course_id=exc.course_id,
     )
     db.add(dest)
     db.delete(exc)
@@ -342,7 +373,7 @@ def update_message(
 def create_conversation(
     db: Session, trip_id: int, name: str = "Main"
 ) -> models.Conversation:
-    conv = models.Conversation(trip_id=trip_id, name=name)
+    conv = models.Conversation(owner_type="trip", owner_id=trip_id, name=name)
     db.add(conv)
     trip = get_trip(db, trip_id)
     if trip:
@@ -365,7 +396,10 @@ def get_conversation(
 def list_conversations(db: Session, trip_id: int) -> list[models.Conversation]:
     return (
         db.query(models.Conversation)
-        .filter(models.Conversation.trip_id == trip_id)
+        .filter(
+            models.Conversation.owner_type == "trip",
+            models.Conversation.owner_id == trip_id,
+        )
         .order_by(models.Conversation.created_at.asc())
         .all()
     )
@@ -422,16 +456,19 @@ def rename_conversation(
 def add_message(
     db: Session, conversation_id: int, role: str, content: str
 ) -> models.ConversationMessage:
+    """Persist a message. Keeps the legacy `trip_id` column populated for
+    trip-owned conversations so older tooling that reads it still works."""
     conv = get_conversation(db, conversation_id)
+    legacy_trip_id = conv.owner_id if conv and conv.owner_type == "trip" else None
     msg = models.ConversationMessage(
         conversation_id=conversation_id,
-        trip_id=conv.trip_id if conv else None,
+        trip_id=legacy_trip_id,
         role=role,
         content=content,
     )
     db.add(msg)
-    if conv:
-        trip = get_trip(db, conv.trip_id)
+    if conv and conv.owner_type == "trip":
+        trip = get_trip(db, conv.owner_id)
         if trip:
             trip.updated_at = _utcnow()
     db.commit()
@@ -454,6 +491,10 @@ def list_messages(
 
 
 def trip_to_summary(trip: models.TripPlan) -> schemas.TripSummary:
+    try:
+        weights = json.loads(trip.activity_weights) if trip.activity_weights else {}
+    except (ValueError, TypeError):
+        weights = {}
     return schemas.TripSummary(
         id=trip.id,
         name=trip.name,
@@ -465,10 +506,11 @@ def trip_to_summary(trip: models.TripPlan) -> schemas.TripSummary:
         excluded_count=len(trip.excluded),
         created_at=trip.created_at,
         updated_at=trip.updated_at,
+        activity_weights=weights,
     )
 
 
-def trip_to_detail(trip: models.TripPlan) -> schemas.TripDetail:
+def trip_to_detail(trip: models.TripPlan, db: Session) -> schemas.TripDetail:
     shortlisted = []
     for s in trip.shortlisted:
         scores = json.loads(s.scores_snapshot) if s.scores_snapshot else None
@@ -481,6 +523,8 @@ def trip_to_detail(trip: models.TripPlan) -> schemas.TripDetail:
                 scores_snapshot=scores,
                 user_note=s.user_note,
                 added_at=s.added_at,
+                resort_id=s.resort_id,
+                course_id=s.course_id,
             )
         )
 
@@ -492,6 +536,8 @@ def trip_to_detail(trip: models.TripPlan) -> schemas.TripDetail:
             reason=e.reason,
             user_note=e.user_note,
             excluded_at=e.excluded_at,
+            resort_id=e.resort_id,
+            course_id=e.course_id,
         )
         for e in trip.excluded
     ]
@@ -509,6 +555,8 @@ def trip_to_detail(trip: models.TripPlan) -> schemas.TripDetail:
                 user_note=s.user_note,
                 pre_filled_exclude_reason=s.pre_filled_exclude_reason,
                 suggested_at=s.suggested_at,
+                resort_id=s.resort_id,
+                course_id=s.course_id,
             )
         )
 
@@ -520,7 +568,7 @@ def trip_to_detail(trip: models.TripPlan) -> schemas.TripDetail:
             created_at=c.created_at,
             message_count=len(c.messages),
         )
-        for c in trip.conversations
+        for c in list_conversations(db, trip.id)
     ]
 
     return schemas.TripDetail(

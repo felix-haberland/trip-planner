@@ -9,6 +9,8 @@ Each folder under `specs/` is a feature-level design document, numbered by creat
 | [003](003-conversations-and-history/spec.md) | Multi-conversation per trip + message editing | Implemented |
 | [004](004-region-linking-and-fuzzy-matching/spec.md) | Region linking & fuzzy resolution | Implemented |
 | [005](005-visit-history-filtering/spec.md) | Visit-history 3-tier filtering | Implemented |
+| [006](006-golf-resorts-library/spec.md) | Golf Courses & Resorts Library | Implemented |
+| [007](007-yearly-vacation-planner/spec.md) | Yearly Vacation Planner (slots, trip options, yearly chatbot) | Implemented |
 
 ## Adding a new spec
 

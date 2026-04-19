@@ -265,3 +265,122 @@ Returns:
 
 ### `get_trip_state`
 No parameters. Returns `{ pending_review[], shortlisted[], excluded[] }` for the active trip.
+
+### `search_golf_resorts` (spec 006)
+Search the curated golf-resorts library (read-only).
+
+Optional params: `name_query` (fuzzy), `country` (ISO alpha-2), `price_category` (list of `€`/`€€`/`€€€`/`€€€€`), `hotel_type` (list), `month` (1–12), `tags` (list), `min_rank` (0–100), `limit` (default 10).
+
+Returns `{ library_size: int, total_matches: int, results: [ResortListItem] }` — `library_size` lets Claude distinguish "empty library" from "populated but no match".
+
+### `search_golf_courses` (spec 006)
+Search the curated golf-courses library. Supports resort-attached + standalone courses.
+
+Optional params: `name_query`, `country`, `course_type` (list of links/parkland/heathland/desert/coastal/mountain/other), `min_difficulty`/`max_difficulty` (1–5), `min_holes` (9/18/27/36), `parent_resort` (`any`/`has_resort`/`standalone`), `max_green_fee_eur`, `tags`, `min_rank`, `limit` (default 10).
+
+Returns `{ library_size, total_matches, results }`. Each result includes parent-resort name (or "Standalone"), country/region (inherited when course's own is null), par/length/architect/type/difficulty/rank/green_fee.
+
+### `suggest_for_review` (extended in spec 006)
+Adds two optional parameters, mutually exclusive (enforced at the top of the handler):
+
+- `resort_id`: link the suggestion to a specific resort from `search_golf_resorts` results
+- `course_id`: link the suggestion to a specific course from `search_golf_courses` results
+
+Both IDs persist on the `suggested_destinations` row and propagate through shortlist/excluded transitions.
+
+## Golf Library HTTP API (spec 006)
+
+All paths are under `/api/golf-library`.
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/extract` | Run AI extraction against `{entity_type, url? name?}`. 200 returns `ExtractSuccess*`; 422 returns `ExtractError`. |
+| `GET` | `/resorts` | List resorts. Filters: `country`, `price_category[]`, `hotel_type[]`, `month`, `tags[]`, `region_match` (`any`/`matched`/`unmatched`), `q` (full-text). Sort: `rank_rating`/`price_category`/`course_count`/`updated_at`. Pagination via `limit` (≤200) + `offset`. |
+| `GET` | `/resorts/{id}` | Full detail: resort + attached courses + images + VacationMap score snapshot (when linked). |
+| `POST` | `/resorts` | Create. 409 returns `DuplicateWarning` (retry with `?force=true`). |
+| `PATCH` | `/resorts/{id}` | Partial update. |
+| `DELETE` | `/resorts/{id}` | 204 on success, 409 with `DeleteBlocked` body when attached courses or shortlist references exist (FR-020a). |
+| `POST` | `/resorts/{id}/link-region` | Body: `{vacationmap_region_key}`. Use `null` to unlink. |
+| `GET` | `/courses` | List courses. Filters: `country`, `course_type[]`, `min_difficulty`/`max_difficulty`, `min_holes`, `parent_resort`, `max_green_fee_eur`, `tags[]`, `region_match`, `q`. Sort: `rank_rating`/`length_yards`/`difficulty`/`green_fee_low_eur`/`updated_at`. |
+| `GET` | `/courses/{id}` | Full detail: course + images + parent-resort summary + VacationMap scores. |
+| `POST` | `/courses` | Create (standalone or attached). 409 dedup pattern same as resorts. |
+| `PATCH` | `/courses/{id}` | Partial update. |
+| `DELETE` | `/courses/{id}` | 204 on success, 409 with `DeleteBlocked` body when shortlist references exist. |
+| `POST` | `/courses/{id}/link-region` | Same shape as resort link. |
+| `POST` | `/courses/{id}/link-resort` | Body: `{resort_id}` (null = unlink — requires course's own country_code to be set). |
+| `POST` | `/images` | Body: `{entity_type, entity_id, url, caption?}`. SSRF-validated via HEAD before insert. |
+| `PATCH` | `/images/{id}` | Body: `{caption?, display_order?}`. |
+| `DELETE` | `/images/{id}` | 204. |
+
+### Error envelopes
+
+- **DuplicateWarning** (409 on POST create): `{existing_entity, match_reason: "exact_name_norm_country", actions: ["create_anyway","edit_existing","cancel"]}`.
+- **DeleteBlocked** (409 on DELETE): `{reason: "has_attached_courses"|"referenced_by_shortlist"|"both", blockers: {attached_courses: [...], shortlist_references: [...]}}`.
+- **ExtractError** (422 on `/extract`): `{status: "api_error"|"no_match"|"fetch_error"|"ambiguous", message, partial_data?, candidates?}`.
+
+### SSRF guardrails (FR-005a)
+
+All server-side URL fetches (page fetch during extraction, image HEAD validation, user-supplied image URLs) go through `app.fetcher.safe_get` / `safe_head`:
+
+- `http`/`https` schemes only
+- Post-DNS IP filter: RFC1918, loopback, link-local (169.254/16), IPv6 equivalents, multicast, reserved, unspecified — all blocked
+- 10 s total timeout (connect 3 s + read 7 s)
+- 5 MB response body cap (streamed + truncated)
+- Redirects re-validated on every hop, max 5
+- `trust_env=False` — environment proxies are intentionally ignored
+
+---
+
+## Yearly planner (F009)
+
+Base paths: `/api/year-plans`, `/api/year-options`, `/api/slots`. All bodies JSON. Hierarchy: **YearPlan → YearOption → Slot**. Conversation endpoints remain under `/api/conversations/*` and dispatch on `owner_type='year_plan'`.
+
+### Year plans
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET`    | `/api/year-plans?year={y}&status={s}` | Both filters optional. Returns `YearPlanSummary[]` (includes `windows`, `option_count`, `linked_trip_count`). |
+| `POST`   | `/api/year-plans` | Body `{year, name, intent?, activity_weights?, windows?}`. Seeds a "Main" conversation. Multiple YearPlans per calendar year are allowed. |
+| `GET`    | `/api/year-plans/{id}` | Full detail: `windows[]`, `options[]` (each with its slots), conversations, `attachable_trip_ids`. |
+| `PATCH`  | `/api/year-plans/{id}` | Body `{name?, intent?, activity_weights?, windows?, status?}`. Status must be `'draft'` or `'archived'`. Windows is a JSON list of `{label?, start_date, end_date, duration_hint?, constraints?}`. |
+| `DELETE` | `/api/year-plans/{id}?confirm=true` | Cascades to options, slots, and conversations. Linked `trip_plans` are kept. |
+
+### Year options
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST`   | `/api/year-plans/{id}/options` | Body `{name, summary?, created_by?}`. Returns `YearOptionDetail`. |
+| `GET`    | `/api/year-options/{id}` | Full option with slots. |
+| `PATCH`  | `/api/year-options/{id}` | Body `{name?, summary?, status?, position?}`. Status must be `'draft'`, `'chosen'`, or `'archived'`. |
+| `DELETE` | `/api/year-options/{id}?confirm=true` | Cascades to its slots; linked trips are kept. |
+| `POST`   | `/api/year-options/{id}/fork` | Body `{name}`. Clones the option (and its slots) as a new draft option. Slots' `trip_plan_id` is **not** carried over. |
+| `POST`   | `/api/year-options/{id}/mark-chosen` | Sets `status='chosen'`. Informational — sibling options are left alone. |
+
+### Slots
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST`   | `/api/year-options/{option_id}/slots` | `SlotCreate` body (includes `theme`, `window_index?`, optional `status='proposed'`). 400 on overlap within this option. Year-crossing allowed. Overlap across sibling options is allowed by design. |
+| `PATCH`  | `/api/slots/{slot_id}` | Partial update; re-validates overlap (within the same option) if time fields change. |
+| `DELETE` | `/api/slots/{slot_id}?confirm=true` | Deletes the slot only. Linked trip is kept. |
+| `POST`   | `/api/slots/{slot_id}/accept` | `'proposed'` → `'open'`. |
+| `POST`   | `/api/slots/{slot_id}/start-trip` | Creates a new `trip_plans` row seeded from the slot and sets `slots.trip_plan_id`. Idempotent. Response: `{trip_id, slot_id, trip}`. |
+| `POST`   | `/api/slots/{slot_id}/link-trip` | Body `{trip_id}`. Links an existing trip. |
+| `POST`   | `/api/slots/{slot_id}/unlink-trip` | Clears the link; trip is kept. |
+
+### Conversations
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET`    | `/api/year-plans/{id}/conversations` | List conversations owned by this year plan. |
+| `POST`   | `/api/year-plans/{id}/conversations` | Body `{name}`. Creates an owner-scoped conversation (`owner_type='year_plan'`). |
+
+Cross-owner conversation endpoints (shared with trips):
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST`   | `/api/conversations/{conv_id}/messages` | **Dispatcher**: inspects `conversation.owner_type` and routes to the trip chat or the year-plan chat handler. Response shape matches the handler: trip → `{user_message, assistant_message, trip_state_changed}`, year plan → `{user_message, assistant_message, year_plan_state_changed}`. |
+| `GET`    | `/api/conversations/{conv_id}/messages` | List messages (owner-agnostic). |
+| `POST`   | `/api/conversations/{conv_id}/archive` / `unarchive` | |
+| `DELETE` | `/api/conversations/{conv_id}` | |
+| `PUT`    | `/api/conversations/{conv_id}/rename` | Body `{name}`. |

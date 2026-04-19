@@ -15,6 +15,25 @@ class TripUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None  # "active" or "archived"
+    # Spec 006 FR-017a
+    activity_weights: Optional[dict] = None
+
+
+class TripSummary(BaseModel):
+    id: int
+    name: str
+    description: str
+    target_month: Optional[str] = None
+    status: str
+    suggested_count: int
+    shortlisted_count: int
+    excluded_count: int
+    created_at: datetime
+    updated_at: datetime
+    activity_weights: Optional[dict] = None
+
+    class Config:
+        from_attributes = True
 
 
 class SuggestedDestinationResponse(BaseModel):
@@ -26,6 +45,9 @@ class SuggestedDestinationResponse(BaseModel):
     user_note: Optional[str] = None
     pre_filled_exclude_reason: Optional[str] = None
     suggested_at: datetime
+    # Spec 006 FR-019
+    resort_id: Optional[int] = None
+    course_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -39,6 +61,8 @@ class ShortlistedDestinationResponse(BaseModel):
     scores_snapshot: Optional[dict] = None
     user_note: Optional[str] = None
     added_at: datetime
+    resort_id: Optional[int] = None
+    course_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -51,6 +75,8 @@ class ExcludedDestinationResponse(BaseModel):
     reason: str
     user_note: Optional[str] = None
     excluded_at: datetime
+    resort_id: Optional[int] = None
+    course_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -75,22 +101,6 @@ class ConversationSummary(BaseModel):
 
 
 # --- Trip aggregates ---
-
-
-class TripSummary(BaseModel):
-    id: int
-    name: str
-    description: str
-    target_month: Optional[str] = None
-    status: str
-    suggested_count: int
-    shortlisted_count: int
-    excluded_count: int
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class TripDetail(BaseModel):

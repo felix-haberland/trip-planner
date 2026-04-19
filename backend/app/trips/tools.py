@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from . import crud, vacationmap
+from ..golf.tools import annotate_with_curated_library
 
 # ---------------------------------------------------------------------------
 # Tool definitions (passed to Claude API)
@@ -143,6 +144,21 @@ TOOL_DEFINITIONS = [
                         "Optional pre-filled reason for excluding. Use for recently visited destinations, e.g. 'Visited in 2024, rated 8/10 — revisit not planned soon'"
                     ),
                 },
+                "resort_id": {
+                    "type": "integer",
+                    "description": (
+                        "Optional — when the suggestion is a specific resort from the user's golf "
+                        "library (returned by search_golf_resorts), include its id here so the "
+                        "shortlist entry links to the library record. Mutually exclusive with course_id."
+                    ),
+                },
+                "course_id": {
+                    "type": "integer",
+                    "description": (
+                        "Optional — same as resort_id but for a specific course. Mutually exclusive "
+                        "with resort_id."
+                    ),
+                },
             },
             "required": ["destination_name", "ai_reasoning"],
         },
@@ -239,6 +255,11 @@ def handle_search_destinations(
                 "visit_again": r["visit_again"],
             }
         )
+
+    # Spec 006 FR-016: annotate each region with counts of curated library
+    # entries so Claude can mention specific resorts/courses by name instead
+    # of generic "good for golf".
+    annotate_with_curated_library(formatted, trips_db)
 
     output = {"destinations": formatted}
     if excluded_due_to_visit:
@@ -560,6 +581,16 @@ def _get_sibling_regions(vm_db: Session, lookup_key: str) -> list[dict]:
 def handle_suggest_for_review(
     params: dict, trips_db: Session, vm_db: Session, trip_id: int
 ) -> str:
+    # Spec 006 FR-018: resort_id and course_id are mutually exclusive. Check
+    # early, before hitting the VacationMap DB, so the error is cheap.
+    if params.get("resort_id") is not None and params.get("course_id") is not None:
+        return json.dumps(
+            {
+                "status": "rejected",
+                "reason": "resort_id and course_id are mutually exclusive",
+            }
+        )
+
     lookup_key, scores = _auto_lookup_scores(params, vm_db, trip_id, trips_db)
 
     # Reject if already in any list
@@ -602,6 +633,10 @@ def handle_suggest_for_review(
         if siblings:
             sibling_hint = siblings[:5]
 
+    # FR-018: library link (mutex already validated at top of handler).
+    resort_id = params.get("resort_id")
+    course_id = params.get("course_id")
+
     dest = crud.add_suggested(
         db=trips_db,
         trip_id=trip_id,
@@ -610,6 +645,8 @@ def handle_suggest_for_review(
         region_lookup_key=lookup_key,
         scores_snapshot=scores,
         pre_filled_exclude_reason=params.get("pre_filled_exclude_reason"),
+        resort_id=resort_id,
+        course_id=course_id,
     )
     result = {
         "status": "suggested_for_review",
@@ -618,6 +655,10 @@ def handle_suggest_for_review(
         "scores_resolved": scores is not None,
         "lookup_key_resolved": lookup_key,
     }
+    if resort_id:
+        result["resort_id"] = resort_id
+    if course_id:
+        result["course_id"] = course_id
     if matched_region_name:
         result["fuzzy_matched"] = True
         result["matched_region"] = matched_region_name
@@ -678,6 +719,7 @@ def handle_get_trip_state(
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
+
 
 TOOL_HANDLERS = {
     "search_destinations": handle_search_destinations,

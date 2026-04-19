@@ -1,0 +1,559 @@
+openapi: 3.0.3
+info:
+  title: Trip Planner — Golf Library API (spec 006 addition)
+  version: 1.0.0
+  description: |
+    New HTTP endpoints added by spec 006 (Golf Courses & Resorts Library). Existing
+    trip / conversation / destination endpoints are unchanged except where noted
+    (Trip gains activity_weights; destination records gain resort_id/course_id).
+    This file covers only the additions and extensions.
+servers:
+  - url: http://localhost:8000
+
+paths:
+  # ---------------------------------------------------------------- Resorts
+  /api/golf-library/resorts:
+    get:
+      summary: List resorts with filters
+      parameters:
+        - { in: query, name: country, schema: { type: string } }
+        - { in: query, name: price_category, schema: { type: array, items: { type: string, enum: ['€','€€','€€€','€€€€'] } }, style: form, explode: true }
+        - { in: query, name: hotel_type, schema: { type: array, items: { type: string, enum: [luxury, boutique, golf_hotel, none] } }, style: form, explode: true }
+        - { in: query, name: month, schema: { type: integer, minimum: 1, maximum: 12 } }
+        - { in: query, name: tags, schema: { type: array, items: { type: string } }, style: form, explode: true }
+        - { in: query, name: region_match, schema: { type: string, enum: [matched, unmatched, any], default: any } }
+        - { in: query, name: q, schema: { type: string }, description: Full-text search on name_norm + description (FR-R10) }
+        - { in: query, name: sort, schema: { type: string, enum: [rank_rating, price_category, course_count, updated_at], default: rank_rating } }
+        - { in: query, name: sort_dir, schema: { type: string, enum: [asc, desc], default: desc } }
+        - { in: query, name: limit, schema: { type: integer, default: 50, maximum: 200 } }
+        - { in: query, name: offset, schema: { type: integer, default: 0 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/ResortListItem' }
+    post:
+      summary: Create a resort (after user review of extracted or manual data)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResortCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Resort' }
+        '409':
+          description: Duplicate detected (FR-003a). Caller can retry with `?force=true`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DuplicateWarning' }
+
+  /api/golf-library/resorts/{id}:
+    get:
+      summary: Get full resort detail (includes attached courses and images)
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResortDetail' }
+        '404': { description: Not found }
+    patch:
+      summary: Partial update of resort fields (FR-014)
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResortPatch' }
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Delete resort (FR-020a — prevent if blockers exist)
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        '204': { description: Deleted }
+        '409':
+          description: Blocked — attached courses or shortlist references exist
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteBlocked' }
+
+  /api/golf-library/resorts/{id}/link-region:
+    post:
+      summary: Link a resort to a VacationMap region (User Story 5)
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vacationmap_region_key]
+              properties:
+                vacationmap_region_key: { type: string, example: 'PT:Lisbon Coast' }
+      responses:
+        '200': { description: OK }
+
+  # ---------------------------------------------------------------- Courses
+  /api/golf-library/courses:
+    get:
+      summary: List courses with filters
+      parameters:
+        - { in: query, name: country, schema: { type: string } }
+        - { in: query, name: course_type, schema: { type: array, items: { type: string, enum: [links,parkland,heathland,desert,coastal,mountain,other] } }, style: form, explode: true }
+        - { in: query, name: min_difficulty, schema: { type: integer, minimum: 1, maximum: 5 } }
+        - { in: query, name: max_difficulty, schema: { type: integer, minimum: 1, maximum: 5 } }
+        - { in: query, name: min_holes, schema: { type: integer, enum: [9, 18, 27, 36] } }
+        - { in: query, name: parent_resort, schema: { type: string, enum: [any, has_resort, standalone], default: any } }
+        - { in: query, name: max_green_fee_eur, schema: { type: integer } }
+        - { in: query, name: tags, schema: { type: array, items: { type: string } }, style: form, explode: true }
+        - { in: query, name: region_match, schema: { type: string, enum: [matched, unmatched, any], default: any } }
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: sort, schema: { type: string, enum: [rank_rating, length_yards, difficulty, green_fee_low_eur, updated_at], default: rank_rating } }
+        - { in: query, name: sort_dir, schema: { type: string, enum: [asc, desc], default: desc } }
+        - { in: query, name: limit, schema: { type: integer, default: 50, maximum: 200 } }
+        - { in: query, name: offset, schema: { type: integer, default: 0 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/CourseListItem' }
+    post:
+      summary: Create a course (standalone or attached to a resort)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CourseCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Course' }
+        '409':
+          description: Duplicate detected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DuplicateWarning' }
+
+  /api/golf-library/courses/{id}:
+    get:
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CourseDetail' } } } }
+        '404': { description: Not found }
+    patch:
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CoursePatch' }
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Delete course (FR-020a — prevent if shortlist references exist)
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        '204': { description: Deleted }
+        '409':
+          description: Blocked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteBlocked' }
+
+  /api/golf-library/courses/{id}/link-resort:
+    post:
+      summary: Link (or unlink) a course to an existing resort
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resort_id: { type: integer, nullable: true, description: 'null = unlink' }
+      responses:
+        '200': { description: OK }
+
+  # ---------------------------------------------------------------- Extraction
+  /api/golf-library/extract:
+    post:
+      summary: Run AI extraction against a URL or a name (FR-004/005/006)
+      description: |
+        Returns structured data the UI pre-fills into the Add form. The user reviews
+        and then posts to /resorts or /courses to actually persist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity_type]
+              properties:
+                entity_type: { type: string, enum: [resort, course] }
+                url: { type: string, format: uri, nullable: true }
+                name: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Extraction succeeded (fully or partially)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ExtractSuccessResort'
+                  - $ref: '#/components/schemas/ExtractSuccessCourse'
+        '422':
+          description: Extraction failed per FR-008
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExtractError' }
+
+  # ---------------------------------------------------------------- Images
+  /api/golf-library/images:
+    post:
+      summary: Add an image to a resort or course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity_type, entity_id, url]
+              properties:
+                entity_type: { type: string, enum: [resort, course] }
+                entity_id:   { type: integer }
+                url:         { type: string, format: uri }
+                caption:     { type: string, nullable: true }
+      responses:
+        '201': { description: Created }
+
+  /api/golf-library/images/{id}:
+    patch:
+      summary: Update image caption or display_order
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                caption: { type: string }
+                display_order: { type: integer }
+      responses:
+        '200': { description: OK }
+    delete:
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        '204': { description: Deleted }
+
+components:
+  schemas:
+    ResortListItem:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        country_code: { type: string }
+        region_name_raw: { type: string, nullable: true }
+        vacationmap_region_key: { type: string, nullable: true }
+        hotel_type: { type: string, nullable: true }
+        price_category: { type: string, nullable: true }
+        course_count: { type: integer }
+        rank_rating: { type: integer, nullable: true }
+        best_months: { type: array, items: { type: integer } }
+        hero_image_url: { type: string, nullable: true, description: 'First image by display_order' }
+        region_matched: { type: boolean, description: 'true iff vacationmap_region_key is set' }
+
+    Resort:
+      allOf:
+        - $ref: '#/components/schemas/ResortListItem'
+        - type: object
+          properties:
+            url: { type: string, nullable: true }
+            source_urls: { type: array, items: { type: string } }
+            town: { type: string, nullable: true }
+            latitude: { type: number, nullable: true }
+            longitude: { type: number, nullable: true }
+            hotel_name: { type: string, nullable: true }
+            star_rating: { type: integer, nullable: true }
+            description: { type: string, nullable: true }
+            amenities: { type: array, items: { type: string } }
+            tags: { type: array, items: { type: string } }
+            personal_notes: { type: string, nullable: true }
+            source_checked_at: { type: string, format: date-time, nullable: true }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+
+    ResortDetail:
+      allOf:
+        - $ref: '#/components/schemas/Resort'
+        - type: object
+          properties:
+            courses: { type: array, items: { $ref: '#/components/schemas/Course' } }
+            images: { type: array, items: { $ref: '#/components/schemas/EntityImage' } }
+            vacationmap_scores: { type: object, nullable: true, description: 'Score snapshot for linked region if any' }
+
+    ResortCreate:
+      type: object
+      required: [name, country_code]
+      properties:
+        name: { type: string }
+        country_code: { type: string }
+        url: { type: string, nullable: true }
+        source_urls: { type: array, items: { type: string } }
+        region_name_raw: { type: string, nullable: true }
+        vacationmap_region_key: { type: string, nullable: true }
+        town: { type: string, nullable: true }
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        hotel_name: { type: string, nullable: true }
+        hotel_type: { type: string, enum: [luxury, boutique, golf_hotel, none], nullable: true }
+        star_rating: { type: integer, minimum: 0, maximum: 5, nullable: true }
+        price_category: { type: string, enum: ['€','€€','€€€','€€€€'], nullable: true }
+        best_months: { type: array, items: { type: integer, minimum: 1, maximum: 12 } }
+        description: { type: string, nullable: true }
+        amenities: { type: array, items: { type: string } }
+        rank_rating: { type: integer, minimum: 0, maximum: 100, nullable: true }
+        tags: { type: array, items: { type: string } }
+        personal_notes: { type: string, nullable: true }
+        courses: { type: array, items: { $ref: '#/components/schemas/CourseCreate' }, description: 'Inline course creation' }
+        image_urls: { type: array, items: { type: string, format: uri }, description: 'Captured during extraction; rows added to entity_images' }
+
+    ResortPatch:
+      description: Same fields as ResortCreate but all optional
+      type: object
+      properties:
+        name: { type: string }
+        country_code: { type: string }
+        url: { type: string, nullable: true }
+        hotel_type: { type: string, nullable: true }
+        price_category: { type: string, nullable: true }
+        best_months: { type: array, items: { type: integer } }
+        description: { type: string, nullable: true }
+        tags: { type: array, items: { type: string } }
+        personal_notes: { type: string, nullable: true }
+        rank_rating: { type: integer, nullable: true }
+
+    CourseListItem:
+      type: object
+      properties:
+        id: { type: integer }
+        resort_id: { type: integer, nullable: true }
+        resort_name: { type: string, nullable: true, description: '"Standalone" when null' }
+        name: { type: string }
+        country_code: { type: string, description: 'Inherited from resort when null on row' }
+        region_name_raw: { type: string, nullable: true }
+        vacationmap_region_key: { type: string, nullable: true }
+        type: { type: string, nullable: true }
+        par: { type: integer, nullable: true }
+        length_yards: { type: integer, nullable: true }
+        architect: { type: string, nullable: true }
+        difficulty: { type: integer, nullable: true }
+        rank_rating: { type: integer, nullable: true }
+        hero_image_url: { type: string, nullable: true }
+        green_fee_low_eur: { type: integer, nullable: true }
+        green_fee_high_eur: { type: integer, nullable: true }
+        region_matched: { type: boolean }
+
+    Course:
+      allOf:
+        - $ref: '#/components/schemas/CourseListItem'
+        - type: object
+          properties:
+            url: { type: string, nullable: true }
+            source_urls: { type: array, items: { type: string } }
+            town: { type: string, nullable: true }
+            latitude: { type: number, nullable: true }
+            longitude: { type: number, nullable: true }
+            holes: { type: integer, nullable: true }
+            year_opened: { type: integer, nullable: true }
+            signature_holes: { type: string, nullable: true }
+            description: { type: string, nullable: true }
+            green_fee_notes: { type: string, nullable: true }
+            best_months: { type: array, items: { type: integer } }
+            tags: { type: array, items: { type: string } }
+            personal_notes: { type: string, nullable: true }
+            display_order: { type: integer }
+            source_checked_at: { type: string, format: date-time, nullable: true }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+
+    CourseDetail:
+      allOf:
+        - $ref: '#/components/schemas/Course'
+        - type: object
+          properties:
+            parent_resort: { $ref: '#/components/schemas/ResortListItem', nullable: true }
+            images: { type: array, items: { $ref: '#/components/schemas/EntityImage' } }
+            vacationmap_scores: { type: object, nullable: true }
+
+    CourseCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        resort_id: { type: integer, nullable: true }
+        url: { type: string, nullable: true }
+        source_urls: { type: array, items: { type: string } }
+        country_code: { type: string, nullable: true, description: 'Required when resort_id is null' }
+        region_name_raw: { type: string, nullable: true }
+        vacationmap_region_key: { type: string, nullable: true }
+        town: { type: string, nullable: true }
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        holes: { type: integer, enum: [9, 18, 27, 36], nullable: true }
+        par: { type: integer, nullable: true }
+        length_yards: { type: integer, nullable: true }
+        type: { type: string, enum: [links, parkland, heathland, desert, coastal, mountain, other], nullable: true }
+        architect: { type: string, nullable: true }
+        year_opened: { type: integer, nullable: true }
+        difficulty: { type: integer, minimum: 1, maximum: 5, nullable: true }
+        signature_holes: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        green_fee_low_eur: { type: integer, nullable: true }
+        green_fee_high_eur: { type: integer, nullable: true }
+        green_fee_notes: { type: string, nullable: true }
+        best_months: { type: array, items: { type: integer } }
+        rank_rating: { type: integer, nullable: true }
+        tags: { type: array, items: { type: string } }
+        personal_notes: { type: string, nullable: true }
+        display_order: { type: integer, default: 0 }
+        image_urls: { type: array, items: { type: string, format: uri } }
+
+    CoursePatch:
+      description: Same fields as CourseCreate but all optional
+      type: object
+
+    EntityImage:
+      type: object
+      properties:
+        id: { type: integer }
+        entity_type: { type: string, enum: [resort, course] }
+        entity_id: { type: integer }
+        url: { type: string }
+        caption: { type: string, nullable: true }
+        display_order: { type: integer }
+        validation: { type: string, enum: [ok, unreachable, wrong_type, unknown], description: 'Computed at display time or stored, see research R4' }
+
+    ExtractSuccessResort:
+      type: object
+      required: [entity_type, data, source_urls]
+      properties:
+        entity_type: { type: string, enum: [resort] }
+        data: { $ref: '#/components/schemas/ResortCreate' }
+        source_urls: { type: array, items: { type: string } }
+        image_candidates:
+          type: array
+          items:
+            type: object
+            properties:
+              url: { type: string }
+              caption: { type: string, nullable: true }
+              validation: { type: string, enum: [ok, unreachable, wrong_type, unknown] }
+        partial: { type: boolean, default: false }
+        warnings: { type: array, items: { type: string }, description: 'Missing fields, fuzzy region resolutions, etc.' }
+
+    ExtractSuccessCourse:
+      type: object
+      required: [entity_type, data, source_urls]
+      properties:
+        entity_type: { type: string, enum: [course] }
+        data: { $ref: '#/components/schemas/CourseCreate' }
+        source_urls: { type: array, items: { type: string } }
+        image_candidates:
+          type: array
+          items:
+            type: object
+            properties: { url: { type: string }, caption: { type: string, nullable: true }, validation: { type: string } }
+        possible_parent_resort:
+          type: object
+          nullable: true
+          description: FR-006a hint
+          properties:
+            detected_name: { type: string }
+            existing_resort_id: { type: integer, nullable: true }
+        partial: { type: boolean, default: false }
+        warnings: { type: array, items: { type: string } }
+
+    ExtractError:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [api_error, no_match, fetch_error, ambiguous]
+        message: { type: string }
+        partial_data:
+          oneOf:
+            - $ref: '#/components/schemas/ResortCreate'
+            - $ref: '#/components/schemas/CourseCreate'
+          nullable: true
+        candidates:
+          type: array
+          description: 'Populated when status=ambiguous; lets UI render disambiguation list'
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              country_code: { type: string }
+              url: { type: string, nullable: true }
+
+    DuplicateWarning:
+      type: object
+      properties:
+        existing_entity:
+          oneOf:
+            - $ref: '#/components/schemas/ResortListItem'
+            - $ref: '#/components/schemas/CourseListItem'
+        match_reason: { type: string, enum: [exact_name_norm_country] }
+        actions:
+          type: array
+          items: { type: string, enum: [create_anyway, edit_existing, cancel] }
+
+    DeleteBlocked:
+      type: object
+      required: [reason, blockers]
+      properties:
+        reason: { type: string, enum: [has_attached_courses, referenced_by_shortlist, both] }
+        blockers:
+          type: object
+          properties:
+            attached_courses:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer }
+                  name: { type: string }
+            shortlist_references:
+              type: array
+              items:
+                type: object
+                properties:
+                  trip_id: { type: integer }
+                  trip_name: { type: string }
+                  section: { type: string, enum: [suggested, shortlisted, excluded] }
+                  destination_id: { type: integer }

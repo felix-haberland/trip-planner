@@ -13,6 +13,10 @@
         <header>
             <h1 @click="goHome" style="cursor:pointer">Trip Planner</h1>
             <span v-if="currentTrip" class="header-trip-name">{{ currentTrip.name }}</span>
+            <nav class="header-nav">
+                <button class="btn btn-small" @click="openYear" title="Plan the year: slots, trip options">📅 Year</button>
+                <button class="btn btn-small" @click="openLibrary" title="Golf courses & resorts library">⛳ Golf Library</button>
+            </nav>
         </header>
 
         <!-- TRIP LIST VIEW -->
@@ -56,6 +60,22 @@
                 <textarea v-model="newTrip.description"
                     placeholder="e.g. golf trip in June, prefer short flights, warm weather"
                     rows="3" required></textarea>
+
+                <!-- Spec 006 FR-017a: weighted activity tags -->
+                <label>Activity focus (0–100% each; tell the chatbot what to prioritize)</label>
+                <div class="activity-weights">
+                    <div v-for="(row, idx) in newTrip.activities" :key="idx" class="activity-row">
+                        <select v-model="row.tag">
+                            <option v-for="t in activityTagVocab" :key="t" :value="t">{{ t }}</option>
+                        </select>
+                        <input type="number" v-model.number="row.pct" min="0" max="100" style="width: 70px">
+                        <span>%</span>
+                        <button type="button" class="btn-icon" @click="newTrip.activities.splice(idx, 1)" v-if="newTrip.activities.length > 1">×</button>
+                    </div>
+                    <button type="button" class="btn btn-small" @click="addActivityRow">+ Add activity</button>
+                    <span class="hint-text">Total: {{ activityWeightsTotal }}%</span>
+                </div>
+
                 <div class="form-actions">
                     <button type="button" class="btn" @click="view = 'list'">Cancel</button>
                     <button type="submit" class="btn btn-primary" :disabled="creating">
@@ -126,6 +146,8 @@
                                         {{ dest.destination_name }}
                                         <button v-if="!dest.scores_snapshot?.total_score" class="link-btn"
                                             @click.stop="startLinking('suggested', dest)">&#128279;</button>
+                                        <span v-if="dest.resort_id" class="badge badge-parent" @click.stop="openResortDetail(dest.resort_id)" title="Open resort detail">⛳ Resort</span>
+                                        <span v-if="dest.course_id" class="badge badge-parent" @click.stop="openCourseDetail(dest.course_id)" title="Open course detail">⛳ Course</span>
                                     </td>
                                     <td>{{ sv(dest, 'total_score') }}</td>
                                     <td>{{ sv(dest, 'weather_score') }}</td>
@@ -178,6 +200,8 @@
                                         {{ dest.destination_name }}
                                         <button v-if="!dest.scores_snapshot?.total_score" class="link-btn"
                                             @click.stop="startLinking('shortlisted', dest)">&#128279;</button>
+                                        <span v-if="dest.resort_id" class="badge badge-parent" @click.stop="openResortDetail(dest.resort_id)" title="Open resort detail">⛳ Resort</span>
+                                        <span v-if="dest.course_id" class="badge badge-parent" @click.stop="openCourseDetail(dest.course_id)" title="Open course detail">⛳ Course</span>
                                     </td>
                                     <td>{{ sv(dest, 'total_score') }}</td>
                                     <td>{{ sv(dest, 'weather_score') }}</td>
@@ -313,6 +337,782 @@
               </div><!-- /chat-inner -->
             </div>
         </div>
+        <!-- ============================================================= -->
+        <!-- SPEC 006 — Golf Library browse + Add flow                     -->
+        <!-- ============================================================= -->
+        <div v-if="view === 'library'" class="container library-container">
+            <div class="trip-list-header">
+                <h2>⛳ Golf Library</h2>
+                <div>
+                    <button class="btn btn-small" @click="goHome">&larr; Trips</button>
+                    <button class="btn btn-primary" @click="openLibraryAdd">+ Add Resort or Course</button>
+                </div>
+            </div>
+
+            <div class="library-tabs">
+                <button class="library-tab" :class="{ active: libBrowse.mode === 'resorts' }" @click="setBrowseMode('resorts')">
+                    Resorts ({{ libBrowse.mode === 'resorts' ? libBrowse.total : '?' }})
+                </button>
+                <button class="library-tab" :class="{ active: libBrowse.mode === 'courses' }" @click="setBrowseMode('courses')">
+                    Courses ({{ libBrowse.mode === 'courses' ? libBrowse.total : '?' }})
+                </button>
+            </div>
+
+            <div class="library-layout">
+                <!-- FILTER SIDEBAR -->
+                <aside class="library-filters">
+                    <label>Search</label>
+                    <input v-model="libBrowse.q" @input="debouncedReload" placeholder="Name or description…">
+
+                    <label>Country (ISO code)</label>
+                    <input v-model="libBrowse.country" @change="reloadLibrary" placeholder="PT, ES, GB, …">
+
+                    <template v-if="libBrowse.mode === 'resorts'">
+                        <label>Price category</label>
+                        <div class="filter-group">
+                            <label v-for="p in ['€','€€','€€€','€€€€']" :key="p" class="filter-chk">
+                                <input type="checkbox" :value="p" v-model="libBrowse.filters.price_category" @change="reloadLibrary">
+                                {{ p }}
+                            </label>
+                        </div>
+                        <label>Hotel type</label>
+                        <div class="filter-group">
+                            <label v-for="h in ['luxury','boutique','golf_hotel','none']" :key="h" class="filter-chk">
+                                <input type="checkbox" :value="h" v-model="libBrowse.filters.hotel_type" @change="reloadLibrary">
+                                {{ h }}
+                            </label>
+                        </div>
+                        <label>Month (1–12)</label>
+                        <input type="number" v-model.number="libBrowse.filters.month" @change="reloadLibrary" min="1" max="12">
+                    </template>
+
+                    <template v-else>
+                        <label>Course type</label>
+                        <div class="filter-group">
+                            <label v-for="t in ['links','parkland','heathland','desert','coastal','mountain','other']" :key="t" class="filter-chk">
+                                <input type="checkbox" :value="t" v-model="libBrowse.filters.course_type" @change="reloadLibrary">
+                                {{ t }}
+                            </label>
+                        </div>
+                        <label>Difficulty min/max (1–5)</label>
+                        <div class="filter-range">
+                            <input type="number" v-model.number="libBrowse.filters.min_difficulty" @change="reloadLibrary" min="1" max="5" placeholder="min">
+                            <input type="number" v-model.number="libBrowse.filters.max_difficulty" @change="reloadLibrary" min="1" max="5" placeholder="max">
+                        </div>
+                        <label>Min holes</label>
+                        <select v-model.number="libBrowse.filters.min_holes" @change="reloadLibrary">
+                            <option :value="null">—</option>
+                            <option :value="9">9</option>
+                            <option :value="18">18</option>
+                            <option :value="27">27</option>
+                            <option :value="36">36</option>
+                        </select>
+                        <label>Parent resort</label>
+                        <select v-model="libBrowse.filters.parent_resort" @change="reloadLibrary">
+                            <option value="any">Any</option>
+                            <option value="has_resort">Has resort</option>
+                            <option value="standalone">Standalone only</option>
+                        </select>
+                        <label>Max green fee (EUR)</label>
+                        <input type="number" v-model.number="libBrowse.filters.max_green_fee_eur" @change="reloadLibrary">
+                    </template>
+
+                    <label>Region match</label>
+                    <select v-model="libBrowse.filters.region_match" @change="reloadLibrary">
+                        <option value="any">Any</option>
+                        <option value="matched">VacationMap-linked</option>
+                        <option value="unmatched">Unmatched only</option>
+                    </select>
+
+                    <label>Sort</label>
+                    <select v-model="libBrowse.sort" @change="reloadLibrary">
+                        <template v-if="libBrowse.mode === 'resorts'">
+                            <option value="rank_rating">Rank</option>
+                            <option value="price_category">Price</option>
+                            <option value="course_count">Course count</option>
+                            <option value="updated_at">Updated</option>
+                        </template>
+                        <template v-else>
+                            <option value="rank_rating">Rank</option>
+                            <option value="length_yards">Length</option>
+                            <option value="difficulty">Difficulty</option>
+                            <option value="green_fee_low_eur">Green fee</option>
+                            <option value="updated_at">Updated</option>
+                        </template>
+                    </select>
+                    <select v-model="libBrowse.sort_dir" @change="reloadLibrary">
+                        <option value="desc">Descending</option>
+                        <option value="asc">Ascending</option>
+                    </select>
+
+                    <button class="btn btn-small" @click="resetLibraryFilters" style="margin-top: 10px;">Reset filters</button>
+                </aside>
+
+                <!-- RESULT TABLE -->
+                <section class="library-results">
+                    <div v-if="libBrowse.loading" class="empty-state">Loading…</div>
+                    <div v-else-if="libBrowse.total === 0" class="empty-state">
+                        <template v-if="hasAnyFilter()">
+                            No matches. <a @click="resetLibraryFilters" class="link-inline">Clear filters</a>.
+                        </template>
+                        <template v-else>
+                            Your {{ libBrowse.mode }} list is empty. <a @click="openLibraryAdd" class="link-inline">Add your first entry</a>.
+                        </template>
+                    </div>
+
+                    <table v-else class="library-table">
+                        <thead v-if="libBrowse.mode === 'resorts'">
+                            <tr>
+                                <th>Name</th>
+                                <th>Country / Region</th>
+                                <th>Hotel type</th>
+                                <th>Price</th>
+                                <th>Courses</th>
+                                <th>Rank</th>
+                                <th>Best months</th>
+                            </tr>
+                        </thead>
+                        <thead v-else>
+                            <tr>
+                                <th>Name</th>
+                                <th>Parent</th>
+                                <th>Country / Region</th>
+                                <th>Type</th>
+                                <th>Par</th>
+                                <th>Length</th>
+                                <th>Architect</th>
+                                <th>Diff</th>
+                                <th>Rank</th>
+                            </tr>
+                        </thead>
+                        <tbody v-if="libBrowse.mode === 'resorts'">
+                            <tr v-for="r in libBrowse.results" :key="r.id" class="library-row" @click="openResortDetail(r.id)">
+                                <td class="name-cell">
+                                    <strong>{{ r.name }}</strong>
+                                    <span v-if="!r.region_matched" class="badge badge-unmatched">Unmatched region</span>
+                                </td>
+                                <td>{{ r.country_code }}<span v-if="r.region_name_raw"> · {{ r.region_name_raw }}</span></td>
+                                <td>{{ r.hotel_type || '—' }}</td>
+                                <td>{{ r.price_category || '—' }}</td>
+                                <td>{{ r.course_count }}</td>
+                                <td>{{ r.rank_rating ?? '—' }}</td>
+                                <td class="months-cell">{{ (r.best_months || []).join(', ') || '—' }}</td>
+                            </tr>
+                        </tbody>
+                        <tbody v-else>
+                            <tr v-for="c in libBrowse.results" :key="c.id" class="library-row" @click="openCourseDetail(c.id)">
+                                <td class="name-cell">
+                                    <strong>{{ c.name }}</strong>
+                                    <span v-if="!c.region_matched" class="badge badge-unmatched">Unmatched region</span>
+                                </td>
+                                <td>
+                                    <span v-if="c.resort_id" class="badge badge-parent">{{ c.resort_name }}</span>
+                                    <span v-else class="badge badge-standalone">Standalone</span>
+                                </td>
+                                <td>{{ c.country_code || '—' }}<span v-if="c.region_name_raw"> · {{ c.region_name_raw }}</span></td>
+                                <td>{{ c.type || '—' }}</td>
+                                <td>{{ c.par ?? '—' }}</td>
+                                <td>{{ c.length_yards ?? '—' }}</td>
+                                <td>{{ c.architect || '—' }}</td>
+                                <td>{{ c.difficulty ?? '—' }}</td>
+                                <td>{{ c.rank_rating ?? '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div v-if="libBrowse.total > libBrowse.limit" class="library-pagination">
+                        <button class="btn btn-small" :disabled="libBrowse.offset === 0" @click="libraryPrevPage">← Prev</button>
+                        <span>{{ libBrowse.offset + 1 }}–{{ Math.min(libBrowse.offset + libBrowse.limit, libBrowse.total) }} of {{ libBrowse.total }}</span>
+                        <button class="btn btn-small" :disabled="libBrowse.offset + libBrowse.limit >= libBrowse.total" @click="libraryNextPage">Next →</button>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- RESORT DETAIL VIEW -->
+        <div v-if="view === 'library-resort-detail' && libDetail.resort" class="container">
+            <div class="trip-list-header">
+                <h2>{{ libDetail.resort.name }}
+                    <span v-if="!libDetail.resort.vacationmap_region_key" class="badge badge-unmatched">Unmatched region</span>
+                </h2>
+                <div class="detail-actions">
+                    <button class="btn btn-small" @click="openLibrary">&larr; Library</button>
+                    <button class="btn btn-small" @click="startEditResort">Edit</button>
+                    <button class="btn btn-small btn-danger" @click="confirmDeleteResort">Delete</button>
+                </div>
+            </div>
+
+            <!-- Delete blocker panel (FR-020a) -->
+            <div v-if="libDetail.deleteBlocked" class="blocker-panel">
+                <h4>Cannot delete — references exist</h4>
+                <div v-if="libDetail.deleteBlocked.blockers.attached_courses.length">
+                    <p><strong>Attached courses ({{ libDetail.deleteBlocked.blockers.attached_courses.length }})</strong> — detach or delete each:</p>
+                    <ul>
+                        <li v-for="c in libDetail.deleteBlocked.blockers.attached_courses" :key="c.id">
+                            {{ c.name }}
+                            <button class="btn btn-small" @click="openCourseDetail(c.id)">Open</button>
+                        </li>
+                    </ul>
+                </div>
+                <div v-if="libDetail.deleteBlocked.blockers.shortlist_references.length">
+                    <p><strong>Shortlist references ({{ libDetail.deleteBlocked.blockers.shortlist_references.length }})</strong>:</p>
+                    <ul>
+                        <li v-for="r in libDetail.deleteBlocked.blockers.shortlist_references" :key="r.destination_id">
+                            Trip "{{ r.trip_name }}" — {{ r.section }} list — "{{ r.destination_name }}"
+                        </li>
+                    </ul>
+                </div>
+                <div class="form-actions">
+                    <button class="btn" @click="libDetail.deleteBlocked = null">Dismiss</button>
+                    <button class="btn btn-primary" @click="confirmDeleteResort">Retry delete</button>
+                </div>
+            </div>
+
+            <div class="detail-grid-2col">
+                <div class="detail-col">
+                    <h3>Resort</h3>
+                    <dl class="detail-dl">
+                        <dt>Country</dt><dd>{{ libDetail.resort.country_code }}</dd>
+                        <dt v-if="libDetail.resort.region_name_raw">Region</dt><dd v-if="libDetail.resort.region_name_raw">{{ libDetail.resort.region_name_raw }}</dd>
+                        <dt v-if="libDetail.resort.vacationmap_region_key">VacationMap</dt><dd v-if="libDetail.resort.vacationmap_region_key">{{ libDetail.resort.vacationmap_region_key }}</dd>
+                        <dt v-if="libDetail.resort.town">Town</dt><dd v-if="libDetail.resort.town">{{ libDetail.resort.town }}</dd>
+                        <dt v-if="libDetail.resort.hotel_name">Hotel</dt><dd v-if="libDetail.resort.hotel_name">{{ libDetail.resort.hotel_name }}</dd>
+                        <dt v-if="libDetail.resort.hotel_type">Type</dt><dd v-if="libDetail.resort.hotel_type">{{ libDetail.resort.hotel_type }}</dd>
+                        <dt v-if="libDetail.resort.star_rating">Stars</dt><dd v-if="libDetail.resort.star_rating">{{ '★'.repeat(libDetail.resort.star_rating) }}</dd>
+                        <dt v-if="libDetail.resort.price_category">Price</dt><dd v-if="libDetail.resort.price_category">{{ libDetail.resort.price_category }}</dd>
+                        <dt v-if="libDetail.resort.best_months && libDetail.resort.best_months.length">Best months</dt><dd v-if="libDetail.resort.best_months && libDetail.resort.best_months.length">{{ libDetail.resort.best_months.join(', ') }}</dd>
+                        <dt v-if="libDetail.resort.rank_rating">Rank</dt><dd v-if="libDetail.resort.rank_rating">{{ libDetail.resort.rank_rating }} / 100</dd>
+                        <dt v-if="libDetail.resort.tags && libDetail.resort.tags.length">Tags</dt><dd v-if="libDetail.resort.tags && libDetail.resort.tags.length">{{ libDetail.resort.tags.join(', ') }}</dd>
+                    </dl>
+
+                    <div v-if="libDetail.resort.description" class="detail-section">
+                        <h4>Description</h4>
+                        <div v-html="renderMarkdown(libDetail.resort.description)"></div>
+                    </div>
+
+                    <div v-if="libDetail.resort.personal_notes" class="detail-section">
+                        <h4>Personal notes</h4>
+                        <div v-html="renderMarkdown(libDetail.resort.personal_notes)"></div>
+                    </div>
+                </div>
+
+                <div class="detail-col">
+                    <h3>Courses ({{ libDetail.resort.courses.length }})</h3>
+                    <div v-if="libDetail.resort.courses.length === 0" class="hint-text">No courses attached yet.</div>
+                    <div v-for="c in libDetail.resort.courses" :key="c.id" class="attached-course">
+                        <strong>{{ c.name }}</strong>
+                        <span v-if="c.holes">· {{ c.holes }} holes</span>
+                        <span v-if="c.par">· par {{ c.par }}</span>
+                        <span v-if="c.type">· {{ c.type }}</span>
+                        <span v-if="c.architect" class="course-arch">{{ c.architect }}</span>
+                        <div v-if="c.description" class="course-desc">{{ c.description }}</div>
+                        <button class="btn btn-small" @click="openCourseDetail(c.id)">Open detail</button>
+                    </div>
+
+                    <div v-if="libDetail.resort.vacationmap_scores" class="detail-section vm-scores">
+                        <h4>VacationMap scores (linked region)</h4>
+                        <dl class="detail-dl">
+                            <dt>Total</dt><dd>{{ libDetail.resort.vacationmap_scores.total_score ?? '—' }}</dd>
+                            <dt>Golf</dt><dd>{{ libDetail.resort.vacationmap_scores.golf_score ?? '—' }}</dd>
+                            <dt>Attractiveness</dt><dd>{{ libDetail.resort.vacationmap_scores.attractiveness ?? '—' }}</dd>
+                            <dt>Cost</dt><dd>{{ libDetail.resort.vacationmap_scores.cost_relative ?? '—' }}</dd>
+                            <dt>Busyness</dt><dd>{{ libDetail.resort.vacationmap_scores.busyness_relative ?? '—' }}</dd>
+                            <dt>Weather</dt><dd>{{ libDetail.resort.vacationmap_scores.weather_score ?? '—' }}</dd>
+                            <dt>Safety</dt><dd>{{ libDetail.resort.vacationmap_scores.safety ?? '—' }}</dd>
+                        </dl>
+                    </div>
+
+                    <div v-if="libDetail.resort.source_urls && libDetail.resort.source_urls.length" class="detail-section">
+                        <h4>Sources</h4>
+                        <ul class="sources-list">
+                            <li v-for="s in libDetail.resort.source_urls" :key="s">
+                                <a :href="s" target="_blank">{{ s }}</a>
+                            </li>
+                        </ul>
+                        <p v-if="libDetail.resort.source_checked_at" class="hint-text">
+                            Last checked: {{ formatDate(libDetail.resort.source_checked_at) }}
+                        </p>
+                    </div>
+
+                    <!-- Link-to-region (US5) -->
+                    <div class="detail-section">
+                        <h4>Link to VacationMap region</h4>
+                        <p v-if="libDetail.resort.vacationmap_region_key" class="hint-text">
+                            Currently linked: <code>{{ libDetail.resort.vacationmap_region_key }}</code>
+                            <button class="btn btn-small" @click="saveRegionLink(null)">Unlink</button>
+                        </p>
+                        <input v-model="libDetail.regionSearch" @input="searchLibraryRegion"
+                            placeholder="Search regions…" class="link-search-input">
+                        <div v-if="libDetail.regionResults.length" class="link-results">
+                            <div v-for="r in libDetail.regionResults" :key="r.lookup_key"
+                                class="link-result" @click="saveRegionLink(r.lookup_key)">
+                                <strong>{{ r.label }}</strong>
+                                <span class="link-key">{{ r.lookup_key }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- EDIT RESORT MODAL -->
+        <div v-if="libDetail.editing === 'resort'" class="zoom-overlay" @click.self="libDetail.editing = null">
+            <div class="detail-modal">
+                <div class="zoom-header">
+                    <span class="zoom-role">Edit resort</span>
+                    <button class="btn btn-small" @click="libDetail.editing = null">&times; Close</button>
+                </div>
+                <div class="detail-body">
+                    <div class="form-grid">
+                        <label>Name</label><input v-model="libDetail.edit.name">
+                        <label>Country code</label><input v-model="libDetail.edit.country_code" maxlength="3">
+                        <label>Town</label><input v-model="libDetail.edit.town">
+                        <label>Hotel name</label><input v-model="libDetail.edit.hotel_name">
+                        <label>Hotel type</label>
+                        <select v-model="libDetail.edit.hotel_type">
+                            <option :value="null">—</option>
+                            <option value="luxury">Luxury</option>
+                            <option value="boutique">Boutique</option>
+                            <option value="golf_hotel">Golf hotel</option>
+                            <option value="none">None</option>
+                        </select>
+                        <label>Price category</label>
+                        <select v-model="libDetail.edit.price_category">
+                            <option :value="null">—</option>
+                            <option value="€">€</option><option value="€€">€€</option>
+                            <option value="€€€">€€€</option><option value="€€€€">€€€€</option>
+                        </select>
+                        <label>Rank (0–100)</label><input type="number" v-model.number="libDetail.edit.rank_rating" min="0" max="100">
+                        <label>Description</label><textarea v-model="libDetail.edit.description" rows="4"></textarea>
+                        <label>Personal notes</label><textarea v-model="libDetail.edit.personal_notes" rows="2"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn" @click="libDetail.editing = null">Cancel</button>
+                        <button class="btn btn-primary" @click="saveResortEdit">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDIT COURSE MODAL -->
+        <div v-if="libDetail.editing === 'course'" class="zoom-overlay" @click.self="libDetail.editing = null">
+            <div class="detail-modal">
+                <div class="zoom-header">
+                    <span class="zoom-role">Edit course</span>
+                    <button class="btn btn-small" @click="libDetail.editing = null">&times; Close</button>
+                </div>
+                <div class="detail-body">
+                    <div class="form-grid">
+                        <label>Name</label><input v-model="libDetail.edit.name">
+                        <label>Country code</label><input v-model="libDetail.edit.country_code" maxlength="3">
+                        <label>Holes</label>
+                        <select v-model.number="libDetail.edit.holes">
+                            <option :value="null">—</option><option :value="9">9</option>
+                            <option :value="18">18</option><option :value="27">27</option><option :value="36">36</option>
+                        </select>
+                        <label>Par</label><input type="number" v-model.number="libDetail.edit.par">
+                        <label>Length (yd)</label><input type="number" v-model.number="libDetail.edit.length_yards">
+                        <label>Type</label>
+                        <select v-model="libDetail.edit.type">
+                            <option :value="null">—</option>
+                            <option value="links">Links</option><option value="parkland">Parkland</option>
+                            <option value="heathland">Heathland</option><option value="desert">Desert</option>
+                            <option value="coastal">Coastal</option><option value="mountain">Mountain</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <label>Architect</label><input v-model="libDetail.edit.architect">
+                        <label>Difficulty (1–5)</label><input type="number" v-model.number="libDetail.edit.difficulty" min="1" max="5">
+                        <label>Rank (0–100)</label><input type="number" v-model.number="libDetail.edit.rank_rating" min="0" max="100">
+                        <label>Green fee low (€)</label><input type="number" v-model.number="libDetail.edit.green_fee_low_eur">
+                        <label>Green fee high (€)</label><input type="number" v-model.number="libDetail.edit.green_fee_high_eur">
+                        <label>Green fee notes</label><input v-model="libDetail.edit.green_fee_notes">
+                        <label>Description</label><textarea v-model="libDetail.edit.description" rows="4"></textarea>
+                        <label>Personal notes</label><textarea v-model="libDetail.edit.personal_notes" rows="2"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn" @click="libDetail.editing = null">Cancel</button>
+                        <button class="btn btn-primary" @click="saveCourseEdit">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COURSE DETAIL VIEW -->
+        <div v-if="view === 'library-course-detail' && libDetail.course" class="container">
+            <div class="trip-list-header">
+                <h2>{{ libDetail.course.name }}
+                    <span v-if="libDetail.course.parent_resort" class="badge badge-parent">{{ libDetail.course.parent_resort.name }}</span>
+                    <span v-else class="badge badge-standalone">Standalone course</span>
+                </h2>
+                <div class="detail-actions">
+                    <button class="btn btn-small" @click="openLibrary">&larr; Library</button>
+                    <button class="btn btn-small" @click="startEditCourse">Edit</button>
+                    <button class="btn btn-small btn-danger" @click="confirmDeleteCourse">Delete</button>
+                </div>
+            </div>
+
+            <div v-if="libDetail.deleteBlocked" class="blocker-panel">
+                <h4>Cannot delete — shortlist references exist</h4>
+                <ul>
+                    <li v-for="r in libDetail.deleteBlocked.blockers.shortlist_references" :key="r.destination_id">
+                        Trip "{{ r.trip_name }}" — {{ r.section }} list — "{{ r.destination_name }}"
+                    </li>
+                </ul>
+                <div class="form-actions">
+                    <button class="btn" @click="libDetail.deleteBlocked = null">Dismiss</button>
+                    <button class="btn btn-primary" @click="confirmDeleteCourse">Retry delete</button>
+                </div>
+            </div>
+
+            <div class="detail-grid-2col">
+                <div class="detail-col">
+                    <h3>Course</h3>
+                    <dl class="detail-dl">
+                        <dt v-if="libDetail.course.holes">Holes</dt><dd v-if="libDetail.course.holes">{{ libDetail.course.holes }}</dd>
+                        <dt v-if="libDetail.course.par">Par</dt><dd v-if="libDetail.course.par">{{ libDetail.course.par }}</dd>
+                        <dt v-if="libDetail.course.length_yards">Length</dt><dd v-if="libDetail.course.length_yards">{{ libDetail.course.length_yards }} yd</dd>
+                        <dt v-if="libDetail.course.type">Type</dt><dd v-if="libDetail.course.type">{{ libDetail.course.type }}</dd>
+                        <dt v-if="libDetail.course.architect">Architect</dt><dd v-if="libDetail.course.architect">{{ libDetail.course.architect }}</dd>
+                        <dt v-if="libDetail.course.year_opened">Opened</dt><dd v-if="libDetail.course.year_opened">{{ libDetail.course.year_opened }}</dd>
+                        <dt v-if="libDetail.course.difficulty">Difficulty</dt><dd v-if="libDetail.course.difficulty">{{ libDetail.course.difficulty }} / 5</dd>
+                        <dt v-if="libDetail.course.rank_rating">Rank</dt><dd v-if="libDetail.course.rank_rating">{{ libDetail.course.rank_rating }} / 100</dd>
+                        <dt v-if="libDetail.course.green_fee_low_eur">Green fee</dt>
+                        <dd v-if="libDetail.course.green_fee_low_eur">
+                            €{{ libDetail.course.green_fee_low_eur }}<span v-if="libDetail.course.green_fee_high_eur && libDetail.course.green_fee_high_eur !== libDetail.course.green_fee_low_eur">–€{{ libDetail.course.green_fee_high_eur }}</span>
+                            <span v-if="libDetail.course.green_fee_notes" class="hint-text"> ({{ libDetail.course.green_fee_notes }})</span>
+                        </dd>
+                        <dt v-if="libDetail.course.best_months && libDetail.course.best_months.length">Best months</dt><dd v-if="libDetail.course.best_months && libDetail.course.best_months.length">{{ libDetail.course.best_months.join(', ') }}</dd>
+                        <dt v-if="libDetail.course.tags && libDetail.course.tags.length">Tags</dt><dd v-if="libDetail.course.tags && libDetail.course.tags.length">{{ libDetail.course.tags.join(', ') }}</dd>
+                    </dl>
+
+                    <div v-if="libDetail.course.description" class="detail-section">
+                        <h4>Description</h4>
+                        <div v-html="renderMarkdown(libDetail.course.description)"></div>
+                    </div>
+                    <div v-if="libDetail.course.signature_holes" class="detail-section">
+                        <h4>Signature holes</h4>
+                        <div v-html="renderMarkdown(libDetail.course.signature_holes)"></div>
+                    </div>
+                    <div v-if="libDetail.course.personal_notes" class="detail-section">
+                        <h4>Personal notes</h4>
+                        <div v-html="renderMarkdown(libDetail.course.personal_notes)"></div>
+                    </div>
+                </div>
+
+                <div class="detail-col">
+                    <div v-if="libDetail.course.parent_resort" class="detail-section parent-card">
+                        <h4>Parent resort</h4>
+                        <strong>{{ libDetail.course.parent_resort.name }}</strong>
+                        <p>{{ libDetail.course.parent_resort.country_code }}<span v-if="libDetail.course.parent_resort.region_name_raw"> · {{ libDetail.course.parent_resort.region_name_raw }}</span></p>
+                        <button class="btn btn-small" @click="openResortDetail(libDetail.course.parent_resort.id)">Open resort detail</button>
+                    </div>
+                    <div v-else class="detail-section">
+                        <h4>Standalone course</h4>
+                        <p>{{ libDetail.course.country_code || 'country unknown' }}<span v-if="libDetail.course.region_name_raw"> · {{ libDetail.course.region_name_raw }}</span></p>
+                    </div>
+
+                    <div v-if="libDetail.course.vacationmap_scores" class="detail-section vm-scores">
+                        <h4>VacationMap scores</h4>
+                        <dl class="detail-dl">
+                            <dt>Total</dt><dd>{{ libDetail.course.vacationmap_scores.total_score ?? '—' }}</dd>
+                            <dt>Golf</dt><dd>{{ libDetail.course.vacationmap_scores.golf_score ?? '—' }}</dd>
+                            <dt>Attractiveness</dt><dd>{{ libDetail.course.vacationmap_scores.attractiveness ?? '—' }}</dd>
+                            <dt>Weather</dt><dd>{{ libDetail.course.vacationmap_scores.weather_score ?? '—' }}</dd>
+                        </dl>
+                    </div>
+
+                    <div v-if="libDetail.course.source_urls && libDetail.course.source_urls.length" class="detail-section">
+                        <h4>Sources</h4>
+                        <ul class="sources-list">
+                            <li v-for="s in libDetail.course.source_urls" :key="s">
+                                <a :href="s" target="_blank">{{ s }}</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Link to resort (US5) -->
+                    <div class="detail-section">
+                        <h4>Link to resort</h4>
+                        <p v-if="libDetail.course.resort_id" class="hint-text">
+                            Parent: {{ libDetail.course.parent_resort?.name }}
+                            <button class="btn btn-small" @click="saveCourseResortLink(null)">Make standalone</button>
+                        </p>
+                        <input v-model="libDetail.resortSearch" @input="searchLibraryResort"
+                            placeholder="Search resorts…" class="link-search-input">
+                        <div v-if="libDetail.resortResults.length" class="link-results">
+                            <div v-for="r in libDetail.resortResults" :key="r.id"
+                                class="link-result" @click="saveCourseResortLink(r.id)">
+                                <strong>{{ r.name }}</strong>
+                                <span class="link-key">{{ r.country_code }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Link to VacationMap region -->
+                    <div class="detail-section">
+                        <h4>Link to VacationMap region</h4>
+                        <p v-if="libDetail.course.vacationmap_region_key" class="hint-text">
+                            Currently linked: <code>{{ libDetail.course.vacationmap_region_key }}</code>
+                            <button class="btn btn-small" @click="saveRegionLink(null)">Unlink</button>
+                        </p>
+                        <input v-model="libDetail.regionSearch" @input="searchLibraryRegion"
+                            placeholder="Search regions…" class="link-search-input">
+                        <div v-if="libDetail.regionResults.length" class="link-results">
+                            <div v-for="r in libDetail.regionResults" :key="r.lookup_key"
+                                class="link-result" @click="saveRegionLink(r.lookup_key)">
+                                <strong>{{ r.label }}</strong>
+                                <span class="link-key">{{ r.lookup_key }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- GOLF LIBRARY — ADD FLOW (US1) -->
+        <div v-if="view === 'library-add'" class="container">
+            <div class="trip-list-header">
+                <h2>Add to Golf Library</h2>
+                <button class="btn btn-small" @click="openLibrary">&larr; Library</button>
+            </div>
+
+            <!-- Step 1: entity type + URL/name input -->
+            <div v-if="!libAdd.extracted && !libAdd.error" class="library-add-box">
+                <label>Entity type</label>
+                <div class="entity-type-switcher">
+                    <label><input type="radio" value="resort" v-model="libAdd.entityType"> Resort (hotel + one or more on-site courses)</label>
+                    <label><input type="radio" value="course" v-model="libAdd.entityType"> Course (single course; may or may not belong to a resort)</label>
+                </div>
+
+                <label>URL (optional)</label>
+                <input v-model="libAdd.url" placeholder="https://www.monte-rei.com" :disabled="libAdd.extracting">
+
+                <label>or Name only</label>
+                <input v-model="libAdd.name" placeholder="e.g. Son Gual Mallorca" :disabled="libAdd.extracting">
+
+                <p class="hint-text" v-if="!libAdd.url && !libAdd.name">Provide either a URL or a name. Name-only runs a web search.</p>
+
+                <div class="form-actions">
+                    <button class="btn btn-primary" @click="runExtract"
+                        :disabled="libAdd.extracting || (!libAdd.url && !libAdd.name)">
+                        {{ libAdd.extracting ? '⏳ Searching the web and extracting data (up to 30s)…' : 'Fetch' }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Extraction error (sub-statused per FR-008) -->
+            <div v-if="libAdd.error" class="library-add-box error-box">
+                <h3 class="error-title">{{ extractErrorTitle(libAdd.error.status) }}</h3>
+                <p>{{ libAdd.error.message }}</p>
+                <div v-if="libAdd.error.candidates && libAdd.error.candidates.length" class="candidate-list">
+                    <h4>Candidates found:</h4>
+                    <ul>
+                        <li v-for="c in libAdd.error.candidates" :key="c.url || c.name">
+                            <strong>{{ c.name }}</strong>
+                            <span v-if="c.country_code"> ({{ c.country_code }})</span>
+                            <a v-if="c.url" :href="c.url" target="_blank">{{ c.url }}</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="form-actions">
+                    <button class="btn" @click="libAdd.error = null">Try again</button>
+                    <button class="btn btn-primary" @click="enterManualMode">Enter manually instead</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Pre-filled form (post-extract or manual) -->
+            <div v-if="libAdd.extracted || libAdd.manual" class="library-add-form">
+                <div class="form-header">
+                    <h3>Review and save</h3>
+                    <div>
+                        <!-- Entity-type post-hoc switch (T034) -->
+                        <button class="btn btn-small" @click="switchEntityType">
+                            Switch to {{ libAdd.entityType === 'resort' ? 'Course' : 'Resort' }}
+                        </button>
+                        <button class="btn btn-small" @click="resetLibraryAdd">Start over</button>
+                    </div>
+                </div>
+
+                <div v-if="libAdd.warnings && libAdd.warnings.length" class="warnings-panel">
+                    <strong>Heads up — partial extraction:</strong>
+                    <ul>
+                        <li v-for="w in libAdd.warnings" :key="w">{{ w }}</li>
+                    </ul>
+                </div>
+
+                <!-- possible_parent_resort hint (T033) -->
+                <div v-if="libAdd.possibleParent" class="hint-panel">
+                    <strong>This course appears to belong to:</strong>
+                    {{ libAdd.possibleParent.detected_name }}
+                    <span v-if="libAdd.possibleParent.existing_resort_id">
+                        (already in your library as id {{ libAdd.possibleParent.existing_resort_id }})
+                    </span>
+                    <div class="form-actions">
+                        <button v-if="libAdd.possibleParent.existing_resort_id"
+                            class="btn btn-small btn-primary"
+                            @click="linkToExistingResort(libAdd.possibleParent.existing_resort_id)">
+                            Link to existing resort
+                        </button>
+                        <button class="btn btn-small" @click="libAdd.possibleParent = null">
+                            Keep standalone
+                        </button>
+                    </div>
+                </div>
+
+                <!-- The big form -->
+                <div class="form-grid">
+                    <label>Name *</label>
+                    <input v-model="libAdd.form.name" required>
+
+                    <label>Country code *</label>
+                    <input v-model="libAdd.form.country_code" placeholder="PT / ES / GB" maxlength="3">
+
+                    <label>URL</label>
+                    <input v-model="libAdd.form.url" placeholder="https://…">
+
+                    <label>Region (freetext)</label>
+                    <input v-model="libAdd.form.region_name_raw" placeholder="e.g. Algarve">
+
+                    <label>VacationMap region key</label>
+                    <input v-model="libAdd.form.vacationmap_region_key" placeholder="PT:Algarve (optional)">
+
+                    <label>Town</label>
+                    <input v-model="libAdd.form.town">
+
+                    <template v-if="libAdd.entityType === 'resort'">
+                        <label>Hotel name</label>
+                        <input v-model="libAdd.form.hotel_name">
+
+                        <label>Hotel type</label>
+                        <select v-model="libAdd.form.hotel_type">
+                            <option :value="null">—</option>
+                            <option value="luxury">Luxury</option>
+                            <option value="boutique">Boutique</option>
+                            <option value="golf_hotel">Golf hotel</option>
+                            <option value="none">None (standalone course property)</option>
+                        </select>
+
+                        <label>Star rating (0–5)</label>
+                        <input type="number" v-model.number="libAdd.form.star_rating" min="0" max="5">
+
+                        <label>Price category</label>
+                        <select v-model="libAdd.form.price_category">
+                            <option :value="null">—</option>
+                            <option value="€">€</option>
+                            <option value="€€">€€</option>
+                            <option value="€€€">€€€</option>
+                            <option value="€€€€">€€€€</option>
+                        </select>
+                    </template>
+
+                    <template v-else>
+                        <label>Holes</label>
+                        <select v-model.number="libAdd.form.holes">
+                            <option :value="null">—</option>
+                            <option :value="9">9</option>
+                            <option :value="18">18</option>
+                            <option :value="27">27</option>
+                            <option :value="36">36</option>
+                        </select>
+
+                        <label>Par</label>
+                        <input type="number" v-model.number="libAdd.form.par">
+
+                        <label>Length (yards)</label>
+                        <input type="number" v-model.number="libAdd.form.length_yards">
+
+                        <label>Type</label>
+                        <select v-model="libAdd.form.type">
+                            <option :value="null">—</option>
+                            <option value="links">Links</option>
+                            <option value="parkland">Parkland</option>
+                            <option value="heathland">Heathland</option>
+                            <option value="desert">Desert</option>
+                            <option value="coastal">Coastal</option>
+                            <option value="mountain">Mountain</option>
+                            <option value="other">Other</option>
+                        </select>
+
+                        <label>Architect</label>
+                        <input v-model="libAdd.form.architect">
+
+                        <label>Year opened</label>
+                        <input type="number" v-model.number="libAdd.form.year_opened">
+
+                        <label>Difficulty (1–5)</label>
+                        <input type="number" v-model.number="libAdd.form.difficulty" min="1" max="5">
+
+                        <label>Green fee low (EUR)</label>
+                        <input type="number" v-model.number="libAdd.form.green_fee_low_eur">
+
+                        <label>Green fee high (EUR)</label>
+                        <input type="number" v-model.number="libAdd.form.green_fee_high_eur">
+
+                        <label>Green fee notes</label>
+                        <input v-model="libAdd.form.green_fee_notes" placeholder="e.g. peak season, guest rate only">
+                    </template>
+
+                    <label>Best months (1–12, comma-separated)</label>
+                    <input v-model="libAdd.bestMonthsText" placeholder="4,5,9,10">
+
+                    <label>Tags (comma-separated)</label>
+                    <input v-model="libAdd.tagsText" placeholder="luxury, championship">
+
+                    <label>Rank rating (0–100)</label>
+                    <input type="number" v-model.number="libAdd.form.rank_rating" min="0" max="100">
+
+                    <label>Description</label>
+                    <textarea v-model="libAdd.form.description" rows="4"></textarea>
+
+                    <label>Personal notes</label>
+                    <textarea v-model="libAdd.form.personal_notes" rows="2"></textarea>
+                </div>
+
+                <!-- Sources -->
+                <div v-if="libAdd.sources.length" class="form-section">
+                    <h4>Sources consulted</h4>
+                    <ul class="sources-list">
+                        <li v-for="s in libAdd.sources" :key="s">
+                            <a :href="s" target="_blank">{{ s }}</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn" @click="openLibrary">Cancel</button>
+                    <button class="btn btn-primary" @click="saveLibraryEntry" :disabled="libAdd.saving">
+                        {{ libAdd.saving ? 'Saving…' : 'Save to Library' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DUPLICATE WARNING MODAL (T032) -->
+        <div v-if="libAdd.duplicate" class="zoom-overlay" @click.self="libAdd.duplicate = null">
+            <div class="detail-modal">
+                <div class="zoom-header">
+                    <span class="zoom-role">Possible duplicate detected</span>
+                    <button class="btn btn-small" @click="libAdd.duplicate = null">&times; Close</button>
+                </div>
+                <div class="detail-body">
+                    <p>An entry with the same normalized name and country already exists:</p>
+                    <div class="existing-entity-card">
+                        <strong>{{ libAdd.duplicate.existing_entity.name }}</strong>
+                        ({{ libAdd.duplicate.existing_entity.country_code }})
+                        <span v-if="libAdd.duplicate.existing_entity.hotel_type">— {{ libAdd.duplicate.existing_entity.hotel_type }}</span>
+                        <span v-if="libAdd.duplicate.existing_entity.price_category">— {{ libAdd.duplicate.existing_entity.price_category }}</span>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn" @click="libAdd.duplicate = null">Cancel</button>
+                        <button class="btn" @click="editExistingDuplicate">Edit existing</button>
+                        <button class="btn btn-primary" @click="forceCreateDuplicate">Create anyway</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- DESTINATION DETAIL POPUP -->
         <div v-if="destDetail" class="zoom-overlay" @click.self="destDetail = null">
             <div class="detail-modal">
@@ -462,6 +1262,266 @@
                 </div>
             </div>
         </div>
+
+        <!-- ==================================================================
+             Spec 007 — Yearly Vacation Planner
+             ================================================================== -->
+
+        <!-- YEAR LIST VIEW -->
+        <div v-if="view === 'year'" class="container">
+            <div class="trip-list-header">
+                <h2>Year Planner</h2>
+                <div class="year-controls">
+                    <label>Year:
+                        <select :value="yearFilter" @change="setYearFilter(parseInt($event.target.value))">
+                            <option v-for="y in [yearFilter-1, yearFilter, yearFilter+1, yearFilter+2]" :key="y" :value="y">{{ y }}</option>
+                        </select>
+                    </label>
+                    <button class="btn btn-primary" @click="createYearPlan">+ New year plan</button>
+                </div>
+            </div>
+            <div v-if="yearPlans.length === 0" class="empty-state">
+                No year plans for {{ yearFilter }} yet. Create one to lay out your open windows and compare options.
+            </div>
+            <div v-for="plan in yearPlans" :key="plan.id" class="trip-card" @click="openYearPlan(plan.id)">
+                <div class="trip-card-header">
+                    <h3>{{ plan.name }} <span class="year-badge">{{ plan.year }}</span></h3>
+                    <span class="status-badge" :class="plan.status">{{ plan.status }}</span>
+                </div>
+                <p v-if="plan.intent" class="trip-desc">{{ plan.intent }}</p>
+                <div class="trip-meta">
+                    <span>{{ plan.option_count }} option{{ plan.option_count === 1 ? '' : 's' }}</span>
+                    <span>{{ plan.linked_trip_count }} linked trip{{ plan.linked_trip_count === 1 ? '' : 's' }}</span>
+                    <span>{{ (plan.windows || []).length }} window{{ (plan.windows || []).length === 1 ? '' : 's' }}</span>
+                    <span>{{ formatDate(plan.updated_at) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- YEAR PLAN DETAIL VIEW -->
+        <div v-if="view === 'year-detail' && currentYearPlan" class="planning-layout">
+            <div class="year-detail">
+                <div class="year-detail-header">
+                    <div>
+                        <h2>
+                            {{ currentYearPlan.name }}
+                            <span class="year-badge">{{ currentYearPlan.year }}</span>
+                            <span class="status-badge" :class="currentYearPlan.status">{{ currentYearPlan.status }}</span>
+                        </h2>
+                        <p class="year-intent" @click="editYearIntent" title="Click to edit">
+                            {{ currentYearPlan.intent || '(no intent — click to add)' }}
+                        </p>
+                    </div>
+                    <div class="year-detail-actions">
+                        <button class="btn btn-small" @click="renameYearPlan">Rename</button>
+                        <button class="btn btn-small" @click="toggleArchiveYearPlan">
+                            {{ currentYearPlan.status === 'archived' ? 'Unarchive' : 'Archive' }}
+                        </button>
+                        <button class="btn btn-small btn-danger" @click="deleteYearPlan(currentYearPlan.id, currentYearPlan.name)">Delete</button>
+                    </div>
+                </div>
+
+                <!-- Windows editor (shared across options) -->
+                <section class="year-section">
+                    <div class="year-section-header">
+                        <h3>Open windows</h3>
+                        <button v-if="!editingWindows" class="btn btn-small" @click="startEditWindows">
+                            {{ (currentYearPlan.windows || []).length ? 'Edit' : '+ Add windows' }}
+                        </button>
+                    </div>
+                    <p class="year-section-hint">
+                        Times you're available to travel. Soft anchors — each Option may shift dates slightly.
+                    </p>
+                    <div v-if="!editingWindows">
+                        <div v-if="(currentYearPlan.windows || []).length === 0" class="empty-state-inline">
+                            No windows yet. Add some so Options can be generated against them.
+                        </div>
+                        <ul v-else class="window-list">
+                            <li v-for="(w, i) in currentYearPlan.windows" :key="i">
+                                <strong>[{{ i }}]</strong>
+                                <span v-if="w.label" class="window-label">{{ w.label }}</span>
+                                <span class="window-dates">{{ w.start_date }} → {{ w.end_date }}</span>
+                                <span v-if="w.duration_hint" class="window-duration">~{{ w.duration_hint }}d</span>
+                                <span v-if="w.constraints" class="window-constraints">· {{ w.constraints }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div v-else class="window-edit">
+                        <div v-for="(w, i) in draftWindows" :key="i" class="window-row">
+                            <span class="window-idx">[{{ i }}]</span>
+                            <input v-model="w.label" placeholder="Label (optional)" class="window-label-input">
+                            <input type="date" v-model="w.start_date">
+                            <span>→</span>
+                            <input type="date" v-model="w.end_date">
+                            <input type="number" v-model.number="w.duration_hint" placeholder="days" class="input-small" min="1" max="365">
+                            <input v-model="w.constraints" placeholder="constraints" class="window-constraints-input">
+                            <button class="btn-icon btn-exclude" @click="removeWindowRow(i)" title="Remove">✗</button>
+                        </div>
+                        <div class="window-edit-actions">
+                            <button class="btn btn-small" @click="addWindowRow">+ Add window</button>
+                            <button class="btn btn-small btn-primary" @click="saveWindows">Save windows</button>
+                            <button class="btn btn-small" @click="cancelEditWindows">Cancel</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Options grid: windows as rows, options as columns -->
+                <section class="year-section">
+                    <div class="year-section-header">
+                        <h3>Year options</h3>
+                        <div class="year-section-actions">
+                            <button class="btn btn-small btn-primary" @click="askAIForOptions" :disabled="yearSending || !(currentYearPlan.windows || []).length">Ask AI for options</button>
+                            <button class="btn btn-small" @click="createOption">+ Blank option</button>
+                        </div>
+                    </div>
+                    <p class="year-section-hint">
+                        Rows are your open windows; columns are candidate year arrangements. Each cell is one trip idea — or empty if the option skips that window.
+                    </p>
+
+                    <div v-if="(currentYearPlan.windows || []).length === 0" class="empty-state-inline">
+                        Add at least one window above before you can place trip ideas.
+                    </div>
+                    <div v-else-if="(currentYearPlan.options || []).length === 0" class="empty-state-inline">
+                        No options yet. Click <strong>Ask AI for options</strong> to generate a few, or <strong>+ Blank option</strong> to start one by hand.
+                    </div>
+
+                    <div v-else class="year-grid-scroll">
+                        <div class="year-grid" :style="`--window-count: ${currentYearPlan.windows.length}`">
+                            <!-- Top-left corner -->
+                            <div class="grid-cell grid-corner">Options ↓ &nbsp;/&nbsp; Windows →</div>
+
+                            <!-- Window column headers -->
+                            <div v-for="(win, widx) in currentYearPlan.windows" :key="'wh-'+widx" class="grid-cell grid-window-header">
+                                <strong>{{ win.label || `Window ${widx}` }}</strong>
+                                <div class="win-dates">{{ win.start_date }} → {{ win.end_date }}</div>
+                                <div v-if="win.duration_hint" class="win-duration">~{{ win.duration_hint }}d</div>
+                            </div>
+
+                            <!-- Option rows -->
+                            <template v-for="opt in currentYearPlan.options" :key="'r-'+opt.id">
+                                <!-- Option row header -->
+                                <div class="grid-cell grid-option-header">
+                                    <div class="opt-title">
+                                        <span class="opt-name">{{ opt.name }}</span>
+                                        <span class="status-badge" :class="opt.status">{{ opt.status }}</span>
+                                        <span v-if="opt.created_by === 'ai'" class="status-badge ai-tag">AI</span>
+                                    </div>
+                                    <p v-if="opt.summary" class="opt-summary" @click="editOptionSummary(opt)" title="Click to edit">{{ opt.summary }}</p>
+                                    <p v-else class="opt-summary opt-summary-empty" @click="editOptionSummary(opt)">+ summary</p>
+                                    <div class="opt-actions">
+                                        <button class="btn btn-small" @click="renameOption(opt)" title="Rename">✎</button>
+                                        <button class="btn btn-small" @click="forkOption(opt)" title="Fork (clone this option)">Fork</button>
+                                        <button v-if="opt.status !== 'chosen'" class="btn btn-small btn-primary" @click="markOptionChosen(opt)" title="Mark as your pick">Pick</button>
+                                        <button v-else class="btn btn-small" @click="unpickOption(opt)" title="Revert to draft">Unpick</button>
+                                        <button class="btn btn-small" @click="archiveOption(opt)" :title="opt.status === 'archived' ? 'Unarchive' : 'Archive'">
+                                            {{ opt.status === 'archived' ? '↑' : '↓' }}
+                                        </button>
+                                        <button class="btn btn-small btn-danger" @click="deleteOption(opt)" title="Delete">×</button>
+                                    </div>
+                                </div>
+
+                                <!-- One cell per window in this option -->
+                                <div v-for="(win, widx) in currentYearPlan.windows" :key="'c-'+opt.id+'-'+widx" class="grid-cell grid-idea-cell">
+                                    <!-- Stack of ideas in this cell -->
+                                    <template v-for="idea in ideasInCell(opt, widx)" :key="idea.id">
+                                        <div v-if="editingSlotId === idea.id" class="slot-form slot-form-inline">
+                                            <input v-model="editSlot.label" placeholder="Label (e.g. 'Safari')">
+                                            <textarea v-model="editSlot.theme" placeholder="Theme: what's this trip about?" rows="2" class="slot-theme-input"></textarea>
+                                            <label>Duration (d):
+                                                <input type="number" v-model.number="editSlot.duration_days" class="input-small" min="1" max="365">
+                                            </label>
+                                            <input v-model="editSlot.climate_hint" placeholder="Climate hint">
+                                            <input v-model="editSlot.constraints_note" placeholder="Constraints">
+                                            <div class="slot-form-actions">
+                                                <button class="btn btn-primary btn-small" @click="saveSlotEdit">Save</button>
+                                                <button class="btn btn-small" @click="cancelSlotEdit">Cancel</button>
+                                            </div>
+                                        </div>
+                                        <div v-else class="idea-card" :class="{ 'idea-proposed': idea.status === 'proposed' }">
+                                            <div class="idea-header">
+                                                <strong>{{ idea.label || '(unnamed)' }}</strong>
+                                                <span v-if="idea.status !== 'open'" class="status-badge" :class="idea.status">{{ idea.status }}</span>
+                                            </div>
+                                            <p v-if="idea.theme" class="idea-theme">{{ idea.theme }}</p>
+                                            <div v-if="idea.duration_days || idea.climate_hint" class="idea-meta">
+                                                <span v-if="idea.duration_days">~{{ idea.duration_days }}d</span>
+                                                <span v-if="idea.climate_hint">· {{ idea.climate_hint }}</span>
+                                            </div>
+                                            <div v-if="idea.trip" class="idea-trip">
+                                                <a href="#" @click.prevent="openSlotTrip(idea)">→ {{ idea.trip.name }}</a>
+                                            </div>
+                                            <div class="idea-actions">
+                                                <button v-if="!idea.trip" class="btn btn-primary btn-small" @click="startTripForSlot(idea.id)" title="Start destination discovery">Find dest. →</button>
+                                                <button v-if="idea.trip" class="btn btn-small" @click="openSlotTrip(idea)">Open →</button>
+                                                <button v-if="idea.status === 'proposed'" class="btn btn-small" @click="acceptSlot(idea.id)" title="Accept proposed idea">✓</button>
+                                                <button v-else-if="idea.status === 'open'" class="btn btn-small" @click="unreviewSlot(idea.id)" title="Send back to proposed">↩</button>
+                                                <button class="btn btn-small" @click="startEditSlot(idea)" title="Edit">✎</button>
+                                                <button class="btn btn-small btn-danger" @click="deleteSlot(idea.id)" title="Delete">×</button>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Inline add form when this is the cell being added to -->
+                                    <div v-if="addingSlotToOption === opt.id && addingInWindow === widx" class="slot-form slot-form-inline">
+                                        <input v-model="newSlot.label" placeholder="Label (e.g. 'Safari')">
+                                        <textarea v-model="newSlot.theme" placeholder="Theme: what's this trip about?" rows="2" class="slot-theme-input"></textarea>
+                                        <label>Duration (d):
+                                            <input type="number" v-model.number="newSlot.duration_days" class="input-small" min="1" max="365">
+                                        </label>
+                                        <input v-model="newSlot.climate_hint" placeholder="Climate hint">
+                                        <div class="slot-form-actions">
+                                            <button class="btn btn-primary btn-small" @click="saveNewSlot">Add</button>
+                                            <button class="btn btn-small" @click="cancelAddSlot">Cancel</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Footer: manual add + AI suggest, unless the inline form is open -->
+                                    <div v-if="!(addingSlotToOption === opt.id && addingInWindow === widx)" class="idea-cell-footer">
+                                        <button class="btn btn-add-idea" @click="startAddIdeaInCell(opt.id, widx)">
+                                            {{ ideasInCell(opt, widx).length ? '+ Add another' : '+ Add trip idea' }}
+                                        </button>
+                                        <button class="btn btn-add-idea btn-suggest-ai"
+                                            @click="askAISuggestForCell(opt, widx)"
+                                            :disabled="yearSending"
+                                            :title="yearSending ? 'Assistant is busy…' : 'Ask the assistant for more ideas'">
+                                            ✨ Suggest more
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Year chatbot sidebar -->
+            <div class="chat-sidebar">
+                <div class="chat-sidebar-header">
+                    <h3>Year Assistant</h3>
+                </div>
+                <div class="conv-tabs">
+                    <button v-for="conv in yearActiveConversations" :key="conv.id"
+                        class="conv-tab" :class="{ active: conv.id === yearActiveConvId }"
+                        @click="switchYearConversation(conv.id)">
+                        {{ conv.name }} <span class="conv-msg-count">({{ conv.message_count }})</span>
+                    </button>
+                    <button class="conv-tab conv-new" @click="newYearConversation">+ New</button>
+                </div>
+                <div class="messages" ref="yearChatEl">
+                    <div v-for="msg in yearMessages" :key="msg.id" class="message" :class="msg.role">
+                        <div class="message-content" v-html="renderMarkdown(msg.content)"></div>
+                    </div>
+                    <div v-if="yearSending" class="message assistant">
+                        <div class="message-content typing">Thinking...</div>
+                    </div>
+                </div>
+                <form @submit.prevent="sendYearMessage" class="chat-input">
+                    <input v-model="yearChatInput" placeholder="Ask for 3 year options, or refine one (e.g. 'make option B golf-heavy')" :disabled="yearSending">
+                    <button type="submit" class="btn btn-primary btn-small" :disabled="yearSending || !yearChatInput.trim()">Send</button>
+                </form>
+            </div>
+        </div>
+
 
         <!-- MESSAGE ZOOM OVERLAY -->
         <div v-if="zoomedMessage" class="zoom-overlay" @click.self="zoomedMessage = null">

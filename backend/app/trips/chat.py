@@ -7,9 +7,16 @@ import anthropic
 from sqlalchemy.orm import Session
 
 from . import crud, models, schemas, vacationmap
-from .tools import TOOL_DEFINITIONS, execute_tool
+from .tools import TOOL_DEFINITIONS, TOOL_HANDLERS, execute_tool
+from ..golf.tools import GOLF_TOOL_DEFINITIONS, GOLF_TOOL_HANDLERS
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+# Merge golf tools into the shared registry at import time (side effect is
+# intentional — keeps chat.py agnostic of which tools it serves).
+TOOL_DEFINITIONS = TOOL_DEFINITIONS + GOLF_TOOL_DEFINITIONS
+TOOL_HANDLERS.update(GOLF_TOOL_HANDLERS)
+
+# The project root is four levels up (app/trips/chat.py → …/backend/app/ → …/backend/ → repo root).
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 
 def _read_md_file(filename: str) -> str:
@@ -20,8 +27,11 @@ def _read_md_file(filename: str) -> str:
     return ""
 
 
-def _build_system_prompt(trip: models.TripPlan, vm_db: Session) -> str:
-    """Assemble the system prompt from instructions.md, profile.md, trip state, and visit history."""
+def _build_system_prompt(
+    trip: models.TripPlan, vm_db: Session, trips_db: Session | None = None
+) -> str:
+    """Assemble the system prompt from instructions.md, profile.md, trip state,
+    visit history, and (spec 006) trip activity_weights + golf library size."""
     instructions = _read_md_file("instructions.md")
     profile = _read_md_file("profile.md")
 
@@ -82,12 +92,107 @@ The couple has visited these places before. "never" and "not_soon" destinations 
     else:
         visit_context = ""
 
+    # F008 — when this trip is the destination-discovery vessel for a year-plan
+    # slot, include the slot's intent so destination suggestions stay aligned
+    # with the theme the user composed at the year level.
+    slot_context = ""
+    if trips_db is not None:
+        try:
+            from ..yearly import crud as _yearly_crud
+            from ..yearly import models as _yearly_models
+
+            slot = _yearly_crud.slot_for_trip(trips_db, trip.id)
+            if slot is not None:
+                plan = (
+                    trips_db.query(_yearly_models.YearPlan)
+                    .filter(_yearly_models.YearPlan.id == slot.year_plan_id)
+                    .first()
+                )
+                when = (
+                    f"{slot.start_year}-{slot.start_month:02d} → "
+                    f"{slot.end_year}-{slot.end_month:02d}"
+                )
+                if slot.exact_start_date and slot.exact_end_date:
+                    when += f" (exact: {slot.exact_start_date} → {slot.exact_end_date})"
+                bits = [f"**Timing**: {when}"]
+                if slot.duration_days:
+                    bits.append(f"**Duration**: ~{slot.duration_days} days")
+                if slot.climate_hint:
+                    bits.append(f"**Climate hint**: {slot.climate_hint}")
+                if slot.constraints_note:
+                    bits.append(f"**Constraints**: {slot.constraints_note}")
+                slot_weights = _yearly_crud._parse_weights(slot.activity_weights)
+                if slot_weights:
+                    bits.append(
+                        "**Slot activity mix**: "
+                        + ", ".join(f"{k}: {v}" for k, v in slot_weights.items())
+                    )
+                theme_line = (
+                    f"**Theme**: {slot.theme}" if slot.theme else "**Theme**: (not set)"
+                )
+                plan_name = (
+                    f"{plan.name} ({plan.year})" if plan else f"#{slot.year_plan_id}"
+                )
+                slot_context = (
+                    f"## Part of Year Plan — {plan_name}\n"
+                    f"This trip fills slot **{slot.label or '(no label)'}** "
+                    f"in the user's year plan. Keep destination suggestions "
+                    f"aligned with the slot intent below — the user picked "
+                    f"this theme/timing at the year level.\n\n"
+                    f"{theme_line}\n" + "\n".join(bits)
+                )
+        except Exception:
+            slot_context = ""
+
+    # Spec 006 FR-017a — activity weights guide tool selection.
+    import json as _json
+
+    try:
+        weights = _json.loads(trip.activity_weights) if trip.activity_weights else {}
+    except (ValueError, TypeError):
+        weights = {}
+    activity_context = ""
+    if weights:
+        weight_lines = [f"- {tag}: {pct}%" for tag, pct in weights.items()]
+        activity_context = "## Trip Activity Focus (weighted)\n" + "\n".join(
+            weight_lines
+        )
+    else:
+        activity_context = (
+            "## Trip Activity Focus\n"
+            "(no structured weights set — infer intent from the user's prompt)"
+        )
+
+    # Spec 006 — library-presence hint. Empty library ⇒ encourage user to curate
+    # or fall back to general knowledge cleanly.
+    library_hint = ""
+    if trips_db is not None:
+        try:
+            from . import models as _models
+
+            resort_count = trips_db.query(_models.GolfResort).count()
+            course_count = trips_db.query(_models.GolfCourse).count()
+            library_hint = (
+                f"## Golf Library Status\n"
+                f"- Curated resorts: {resort_count}\n"
+                f"- Curated courses: {course_count}\n"
+                "Use `search_golf_resorts` / `search_golf_courses` when the trip is golf-heavy "
+                "or when the user names a specific resort/course (pass `name_query`)."
+            )
+        except Exception:
+            library_hint = ""
+
     parts = []
     if instructions:
         parts.append(instructions)
     if profile:
         parts.append(profile)
     parts.append(trip_context)
+    if slot_context:
+        parts.append(slot_context)
+    parts.append(activity_context)
+    if library_hint:
+        parts.append(library_hint)
     if visit_context:
         parts.append(visit_context)
 
@@ -119,7 +224,7 @@ def handle_chat_message(
     trips_db.refresh(conversation)
 
     # 2. Build system prompt and message history
-    system_prompt = _build_system_prompt(trip, vm_db)
+    system_prompt = _build_system_prompt(trip, vm_db, trips_db=trips_db)
     messages = _build_messages(conversation)
 
     # 3. Call Claude with tool use loop

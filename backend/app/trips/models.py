@@ -1,9 +1,16 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
-from .database import TripsBase
+from ..database import TripsBase
 
 
 def _utcnow():
@@ -18,6 +25,9 @@ class TripPlan(TripsBase):
     description = Column(String, nullable=False)
     target_month = Column(String, nullable=True)
     status = Column(String, nullable=False, default="active")
+    # Spec 006 FR-017a: JSON dict mapping activity tag -> integer 0..100.
+    # Empty dict ('{}') preserves free-text-inference behavior for pre-006 trips.
+    activity_weights = Column(Text, nullable=False, default="{}")
     created_at = Column(DateTime, nullable=False, default=_utcnow)
     updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
@@ -36,12 +46,10 @@ class TripPlan(TripsBase):
         back_populates="trip",
         cascade="all, delete-orphan",
     )
-    conversations = relationship(
-        "Conversation",
-        back_populates="trip",
-        cascade="all, delete-orphan",
-        order_by="Conversation.created_at",
-    )
+    # Conversations live in a polymorphic (owner_type, owner_id) shape since spec 007.
+    # No ORM back-populates here: query via crud helpers that filter by
+    # owner_type='trip', owner_id=trip.id. Cascade-on-delete is hand-rolled in
+    # crud.delete_trip so it fires regardless of load path.
 
 
 class SuggestedDestination(TripsBase):
@@ -58,6 +66,10 @@ class SuggestedDestination(TripsBase):
     user_note = Column(String, nullable=True)
     pre_filled_exclude_reason = Column(String, nullable=True)
     suggested_at = Column(DateTime, nullable=False, default=_utcnow)
+    # Spec 006 FR-018/FR-019: optional link to a specific library entity.
+    # Mutually exclusive by convention (enforced in crud, not SQL).
+    resort_id = Column(Integer, nullable=True)
+    course_id = Column(Integer, nullable=True)
 
     trip = relationship("TripPlan", back_populates="suggested")
 
@@ -75,6 +87,9 @@ class ShortlistedDestination(TripsBase):
     scores_snapshot = Column(Text, nullable=True)  # JSON string
     user_note = Column(String, nullable=True)
     added_at = Column(DateTime, nullable=False, default=_utcnow)
+    # Spec 006 FR-018/FR-019
+    resort_id = Column(Integer, nullable=True)
+    course_id = Column(Integer, nullable=True)
 
     trip = relationship("TripPlan", back_populates="shortlisted")
 
@@ -92,22 +107,32 @@ class ExcludedDestination(TripsBase):
     ai_reasoning = Column(Text, nullable=True)
     user_note = Column(String, nullable=True)
     excluded_at = Column(DateTime, nullable=False, default=_utcnow)
+    # Spec 006 FR-018/FR-019
+    resort_id = Column(Integer, nullable=True)
+    course_id = Column(Integer, nullable=True)
 
     trip = relationship("TripPlan", back_populates="excluded")
 
 
 class Conversation(TripsBase):
+    """Polymorphic conversation.
+
+    Spec 007 replaces the hard trip_id FK with (owner_type, owner_id) so the
+    same table serves trips, year plans, and (future) trip options. No FK
+    constraint at the DB level — owners live in different tables; integrity is
+    enforced in crud. Cascade-on-delete is hand-rolled in each owner's
+    `delete_*` function.
+    """
+
     __tablename__ = "conversations"
 
     id = Column(Integer, primary_key=True, index=True)
-    trip_id = Column(
-        Integer, ForeignKey("trip_plans.id", ondelete="CASCADE"), nullable=False
-    )
+    owner_type = Column(String, nullable=False, index=True)
+    owner_id = Column(Integer, nullable=False, index=True)
     name = Column(String, nullable=False, default="Main")
     status = Column(String, nullable=False, default="active")  # "active" or "archived"
     created_at = Column(DateTime, nullable=False, default=_utcnow)
 
-    trip = relationship("TripPlan", back_populates="conversations")
     messages = relationship(
         "ConversationMessage",
         back_populates="conversation",
