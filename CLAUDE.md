@@ -40,9 +40,11 @@ If you find documentation that is already wrong (you didn't cause it but you spo
 
 - **Trip Planner Chatbot** — FastAPI backend (port 8000) + Vue.js 3 frontend (CDN, no build step)
 - **VacationMap** — Separate app at `~/Documents/VacationMap` (port 9000)
-- Two databases:
-  - **Trips DB** (read-write). Postgres on Railway via `DATABASE_URL`; SQLite in local dev via `TRIPS_DB_PATH` (default `./trips.db`). Owns trip plans, suggested/shortlisted/excluded destinations, conversations, messages, golf library, yearly planner.
+- Three databases:
+  - **Trips DB** (read-write). Postgres on Railway via `DATABASE_URL`; SQLite in local dev via `TRIPS_DB_PATH` (default `./trips.db`). Owns trip plans, suggested/shortlisted/excluded destinations, conversations, messages, yearly planner. Schema managed by Alembic.
+  - **Golf DB** (read-write, always SQLite). Owns the curated golf library (resorts, courses, entity_images). Bundled at `backend/data/golf.db`; override with `GOLF_DB_PATH` (e.g. a Railway volume) to make UI-driven edits persistent across deploys. Schema evolves via `GolfBase.metadata.create_all` — no migrations.
   - **VacationMap DB** (read-only, always SQLite). Bundled at `backend/data/vacation.db`; override with `VACATIONMAP_DB_PATH` if needed.
+- Inter-engine references (e.g. `shortlisted_destinations.resort_id` → `golf_resorts.id`) are **plain integer columns with no FK constraint** — SQLAlchemy can't enforce cross-engine FKs. Look up the golf row via a separate session when needed.
 - Stable lookup key pattern: `country_code:region_name` (e.g., `PT:Algarve`)
 - The chatbot does NOT directly mutate destination state. Claude calls `suggest_for_review`, which queues a destination for the user to triage. The user clicks Shortlist/Exclude/Link in the UI.
 
@@ -51,6 +53,7 @@ If you find documentation that is already wrong (you didn't cause it but you spo
 - Python 3.14, FastAPI, SQLAlchemy 2.x, Pydantic 2.x, Anthropic SDK (Claude Sonnet 4)
 - Vue.js 3 via CDN, static HTML/CSS/JS (no npm/build), `marked` for markdown rendering
 - Postgres (prod) or SQLite (local) for the trips DB; Alembic manages the schema
+- SQLite for the golf library (separate engine; `GolfBase.metadata.create_all`)
 - SQLite (read-only) for the VacationMap companion DB
 - `httpx` for server-side URL fetching with SSRF guardrails (added by spec 006)
 - Anthropic server-side `web_search_20250305` tool for name-only extraction (spec 006)

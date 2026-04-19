@@ -1,8 +1,8 @@
 """baseline
 
-Revision ID: 8d582a570e8d
+Revision ID: 1a3a938d3713
 Revises:
-Create Date: 2026-04-19 17:43:01.244856
+Create Date: 2026-04-19 18:17:49.810973
 
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = "8d582a570e8d"
+revision: str = "1a3a938d3713"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -38,65 +38,6 @@ def upgrade() -> None:
         )
         batch_op.create_index(
             batch_op.f("ix_conversations_owner_type"), ["owner_type"], unique=False
-        )
-
-    op.create_table(
-        "entity_images",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("entity_type", sa.String(), nullable=False),
-        sa.Column("entity_id", sa.Integer(), nullable=False),
-        sa.Column("url", sa.String(), nullable=False),
-        sa.Column("caption", sa.String(), nullable=True),
-        sa.Column("display_order", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    with op.batch_alter_table("entity_images", schema=None) as batch_op:
-        batch_op.create_index(batch_op.f("ix_entity_images_id"), ["id"], unique=False)
-        batch_op.create_index(
-            "ix_entity_images_lookup",
-            ["entity_type", "entity_id", "display_order"],
-            unique=False,
-        )
-
-    op.create_table(
-        "golf_resorts",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("name", sa.String(), nullable=False),
-        sa.Column("name_norm", sa.String(), nullable=False),
-        sa.Column("url", sa.String(), nullable=True),
-        sa.Column("source_urls", sa.Text(), nullable=False),
-        sa.Column("country_code", sa.String(), nullable=False),
-        sa.Column("region_name_raw", sa.String(), nullable=True),
-        sa.Column("vacationmap_region_key", sa.String(), nullable=True),
-        sa.Column("town", sa.String(), nullable=True),
-        sa.Column("latitude", sa.Float(), nullable=True),
-        sa.Column("longitude", sa.Float(), nullable=True),
-        sa.Column("hotel_name", sa.String(), nullable=True),
-        sa.Column("hotel_type", sa.String(), nullable=True),
-        sa.Column("star_rating", sa.Integer(), nullable=True),
-        sa.Column("price_category", sa.String(), nullable=True),
-        sa.Column("best_months", sa.Text(), nullable=False),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("amenities", sa.Text(), nullable=False),
-        sa.Column("rank_rating", sa.Integer(), nullable=True),
-        sa.Column("tags", sa.Text(), nullable=False),
-        sa.Column("personal_notes", sa.Text(), nullable=True),
-        sa.Column("source_checked_at", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    with op.batch_alter_table("golf_resorts", schema=None) as batch_op:
-        batch_op.create_index("ix_golf_resorts_country", ["country_code"], unique=False)
-        batch_op.create_index(batch_op.f("ix_golf_resorts_id"), ["id"], unique=False)
-        batch_op.create_index(
-            "ix_golf_resorts_name_norm_country",
-            ["name_norm", "country_code"],
-            unique=False,
-        )
-        batch_op.create_index(
-            "ix_golf_resorts_vm_region_key", ["vacationmap_region_key"], unique=False
         )
 
     op.create_table(
@@ -168,58 +109,6 @@ def upgrade() -> None:
     with op.batch_alter_table("excluded_destinations", schema=None) as batch_op:
         batch_op.create_index(
             batch_op.f("ix_excluded_destinations_id"), ["id"], unique=False
-        )
-
-    op.create_table(
-        "golf_courses",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("resort_id", sa.Integer(), nullable=True),
-        sa.Column("name", sa.String(), nullable=False),
-        sa.Column("name_norm", sa.String(), nullable=False),
-        sa.Column("url", sa.String(), nullable=True),
-        sa.Column("source_urls", sa.Text(), nullable=False),
-        sa.Column("country_code", sa.String(), nullable=True),
-        sa.Column("region_name_raw", sa.String(), nullable=True),
-        sa.Column("vacationmap_region_key", sa.String(), nullable=True),
-        sa.Column("town", sa.String(), nullable=True),
-        sa.Column("latitude", sa.Float(), nullable=True),
-        sa.Column("longitude", sa.Float(), nullable=True),
-        sa.Column("holes", sa.Integer(), nullable=True),
-        sa.Column("par", sa.Integer(), nullable=True),
-        sa.Column("length_yards", sa.Integer(), nullable=True),
-        sa.Column("type", sa.String(), nullable=True),
-        sa.Column("architect", sa.String(), nullable=True),
-        sa.Column("year_opened", sa.Integer(), nullable=True),
-        sa.Column("difficulty", sa.Integer(), nullable=True),
-        sa.Column("signature_holes", sa.Text(), nullable=True),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("green_fee_low_eur", sa.Integer(), nullable=True),
-        sa.Column("green_fee_high_eur", sa.Integer(), nullable=True),
-        sa.Column("green_fee_notes", sa.String(), nullable=True),
-        sa.Column("best_months", sa.Text(), nullable=False),
-        sa.Column("rank_rating", sa.Integer(), nullable=True),
-        sa.Column("tags", sa.Text(), nullable=False),
-        sa.Column("personal_notes", sa.Text(), nullable=True),
-        sa.Column("display_order", sa.Integer(), nullable=False),
-        sa.Column("source_checked_at", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["resort_id"], ["golf_resorts.id"], ondelete="RESTRICT"
-        ),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    with op.batch_alter_table("golf_courses", schema=None) as batch_op:
-        batch_op.create_index(batch_op.f("ix_golf_courses_id"), ["id"], unique=False)
-        batch_op.create_index(
-            "ix_golf_courses_name_norm_country",
-            ["name_norm", "country_code"],
-            unique=False,
-        )
-        batch_op.create_index("ix_golf_courses_resort_id", ["resort_id"], unique=False)
-        batch_op.create_index("ix_golf_courses_type", ["type"], unique=False)
-        batch_op.create_index(
-            "ix_golf_courses_vm_region_key", ["vacationmap_region_key"], unique=False
         )
 
     op.create_table(
@@ -349,14 +238,6 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f("ix_shortlisted_destinations_id"))
 
     op.drop_table("shortlisted_destinations")
-    with op.batch_alter_table("golf_courses", schema=None) as batch_op:
-        batch_op.drop_index("ix_golf_courses_vm_region_key")
-        batch_op.drop_index("ix_golf_courses_type")
-        batch_op.drop_index("ix_golf_courses_resort_id")
-        batch_op.drop_index("ix_golf_courses_name_norm_country")
-        batch_op.drop_index(batch_op.f("ix_golf_courses_id"))
-
-    op.drop_table("golf_courses")
     with op.batch_alter_table("excluded_destinations", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_excluded_destinations_id"))
 
@@ -374,18 +255,6 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f("ix_trip_plans_id"))
 
     op.drop_table("trip_plans")
-    with op.batch_alter_table("golf_resorts", schema=None) as batch_op:
-        batch_op.drop_index("ix_golf_resorts_vm_region_key")
-        batch_op.drop_index("ix_golf_resorts_name_norm_country")
-        batch_op.drop_index(batch_op.f("ix_golf_resorts_id"))
-        batch_op.drop_index("ix_golf_resorts_country")
-
-    op.drop_table("golf_resorts")
-    with op.batch_alter_table("entity_images", schema=None) as batch_op:
-        batch_op.drop_index("ix_entity_images_lookup")
-        batch_op.drop_index(batch_op.f("ix_entity_images_id"))
-
-    op.drop_table("entity_images")
     with op.batch_alter_table("conversations", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_conversations_owner_type"))
         batch_op.drop_index(batch_op.f("ix_conversations_owner_id"))

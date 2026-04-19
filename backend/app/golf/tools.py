@@ -118,18 +118,22 @@ GOLF_TOOL_DEFINITIONS = [
 ]
 
 
-def annotate_with_curated_library(entries: list[dict], trips_db: Session) -> None:
+def annotate_with_curated_library(entries: list[dict], golf_db: Session | None) -> None:
     """Mutate each entry in `entries` to add curated_resort_count / resort_names
-    and curated_course_count / course_names when the region has library content."""
+    and curated_course_count / course_names when the region has library content.
 
-    if not entries:
+    `golf_db` is the golf-engine session. If None (e.g. the caller forgot to
+    pass one), the annotation is a no-op.
+    """
+
+    if not entries or golf_db is None:
         return
     for entry in entries:
         key = entry.get("lookup_key")
         if not key:
             continue
         resorts = (
-            trips_db.query(models.GolfResort.id, models.GolfResort.name)
+            golf_db.query(models.GolfResort.id, models.GolfResort.name)
             .filter(models.GolfResort.vacationmap_region_key == key)
             .all()
         )
@@ -138,7 +142,7 @@ def annotate_with_curated_library(entries: list[dict], trips_db: Session) -> Non
             entry["resort_names"] = [r.name for r in resorts[:3]]
         # Courses linked directly to this region OR via their parent resort.
         resort_ids = [r.id for r in resorts]
-        course_query = trips_db.query(
+        course_query = golf_db.query(
             models.GolfCourse.id, models.GolfCourse.name
         ).filter(
             (models.GolfCourse.vacationmap_region_key == key)
@@ -151,12 +155,19 @@ def annotate_with_curated_library(entries: list[dict], trips_db: Session) -> Non
 
 
 def handle_search_golf_resorts(
-    params: dict, trips_db: Session, vm_db: Session, trip_id: int
+    params: dict,
+    trips_db: Session,
+    vm_db: Session,
+    trip_id: int,
+    golf_db: Session | None = None,
 ) -> str:
     """FR-015 + FR-015b — curated resorts with fuzzy name lookup."""
 
+    if golf_db is None:
+        return json.dumps({"error": "golf library session not available"})
+
     total, items = crud.list_resorts(
-        trips_db,
+        golf_db,
         country=params.get("country"),
         price_category=params.get("price_category"),
         hotel_type=params.get("hotel_type"),
@@ -174,7 +185,7 @@ def handle_search_golf_resorts(
         items = [i for i in items if (i.rank_rating or 0) >= min_rank]
 
     # library_size signals "empty library" vs "populated but no match" (research R8)
-    library_size = trips_db.query(models.GolfResort).count()
+    library_size = golf_db.query(models.GolfResort).count()
 
     out = {
         "library_size": library_size,
@@ -185,12 +196,19 @@ def handle_search_golf_resorts(
 
 
 def handle_search_golf_courses(
-    params: dict, trips_db: Session, vm_db: Session, trip_id: int
+    params: dict,
+    trips_db: Session,
+    vm_db: Session,
+    trip_id: int,
+    golf_db: Session | None = None,
 ) -> str:
     """FR-015a + FR-015b — curated courses with fuzzy name lookup."""
 
+    if golf_db is None:
+        return json.dumps({"error": "golf library session not available"})
+
     total, items = crud.list_courses(
-        trips_db,
+        golf_db,
         country=params.get("country"),
         course_type=params.get("course_type"),
         min_difficulty=params.get("min_difficulty"),
@@ -209,7 +227,7 @@ def handle_search_golf_courses(
     if min_rank is not None:
         items = [i for i in items if (i.rank_rating or 0) >= min_rank]
 
-    library_size = trips_db.query(models.GolfCourse).count()
+    library_size = golf_db.query(models.GolfCourse).count()
 
     out = {
         "library_size": library_size,
@@ -226,11 +244,16 @@ GOLF_TOOL_HANDLERS = {
 
 
 def execute_tool(
-    tool_name: str, tool_input: dict, trips_db, vm_db, trip_id: int
+    tool_name: str,
+    tool_input: dict,
+    trips_db,
+    vm_db,
+    trip_id: int,
+    golf_db=None,
 ) -> str:
     """Dispatch a golf tool call by name. Intended for tests and for callers
     who want to exercise a single golf tool outside the shared registry."""
     handler = GOLF_TOOL_HANDLERS.get(tool_name)
     if handler is None:
         return json.dumps({"error": f"Unknown golf tool: {tool_name}"})
-    return handler(tool_input, trips_db, vm_db, trip_id)
+    return handler(tool_input, trips_db, vm_db, trip_id, golf_db=golf_db)

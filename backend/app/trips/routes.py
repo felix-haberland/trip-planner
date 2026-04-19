@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from . import crud, schemas
-from ..database import get_trips_db, get_vacationmap_db
+from ..database import get_golf_db, get_trips_db, get_vacationmap_db
 
 router = APIRouter()
 
@@ -405,6 +405,7 @@ def send_message(
     message: schemas.MessageCreate,
     trips_db: Session = Depends(get_trips_db),
     vm_db: Session = Depends(get_vacationmap_db),
+    golf_db: Session = Depends(get_golf_db),
 ):
     """Dispatch the message to the right chat handler based on owner_type.
 
@@ -423,7 +424,9 @@ def send_message(
             raise HTTPException(status_code=404, detail="Trip not found")
         from .chat import handle_chat_message
 
-        return handle_chat_message(trip, conv, message.content, trips_db, vm_db)
+        return handle_chat_message(
+            trip, conv, message.content, trips_db, vm_db, golf_db=golf_db
+        )
 
     if conv.owner_type == "year_plan":
         from ..yearly import crud as yearly_crud

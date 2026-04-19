@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from . import crud, schemas
-from ..database import get_trips_db, get_vacationmap_db
+from ..database import get_golf_db, get_vacationmap_db
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ def list_resorts_endpoint(
     sort_dir: str = "desc",
     limit: int = 50,
     offset: int = 0,
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
 ):
     total, items = crud.list_resorts(
         db,
@@ -53,7 +53,7 @@ def list_resorts_endpoint(
 @router.get("/api/golf-library/resorts/{resort_id}")
 def get_resort_detail_endpoint(
     resort_id: int,
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
     vm_db: Session = Depends(get_vacationmap_db),
 ):
     detail = crud.get_resort_detail(db, resort_id, vm_db=vm_db)
@@ -78,7 +78,7 @@ def list_courses_endpoint(
     sort_dir: str = "desc",
     limit: int = 50,
     offset: int = 0,
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
 ):
     total, items = crud.list_courses(
         db,
@@ -103,7 +103,7 @@ def list_courses_endpoint(
 @router.get("/api/golf-library/courses/{course_id}")
 def get_course_detail_endpoint(
     course_id: int,
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
     vm_db: Session = Depends(get_vacationmap_db),
 ):
     detail = crud.get_course_detail(db, course_id, vm_db=vm_db)
@@ -152,7 +152,7 @@ def extract_entity(payload: schemas.ExtractRequest):
 def create_resort(
     payload: schemas.GolfResortCreate,
     force: bool = False,
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
     vm_db: Session = Depends(get_vacationmap_db),
 ):
     try:
@@ -177,7 +177,7 @@ def create_resort(
 def create_course(
     payload: schemas.GolfCourseCreate,
     force: bool = False,
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
     vm_db: Session = Depends(get_vacationmap_db),
 ):
     try:
@@ -201,7 +201,7 @@ def create_course(
 def update_resort(
     resort_id: int,
     patch: schemas.GolfResortPatch,
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
 ):
     resort = crud.update_resort(db, resort_id, patch)
     if resort is None:
@@ -213,7 +213,7 @@ def update_resort(
 def update_course(
     course_id: int,
     patch: schemas.GolfCoursePatch,
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
 ):
     course = crud.update_course(db, course_id, patch)
     if course is None:
@@ -222,7 +222,7 @@ def update_course(
 
 
 @router.delete("/api/golf-library/resorts/{resort_id}", status_code=204)
-def delete_resort_endpoint(resort_id: int, db: Session = Depends(get_trips_db)):
+def delete_resort_endpoint(resort_id: int, db: Session = Depends(get_golf_db)):
     try:
         ok = crud.delete_resort(db, resort_id)
     except crud.DeleteBlocked as blocked:
@@ -235,7 +235,7 @@ def delete_resort_endpoint(resort_id: int, db: Session = Depends(get_trips_db)):
 
 
 @router.delete("/api/golf-library/courses/{course_id}", status_code=204)
-def delete_course_endpoint(course_id: int, db: Session = Depends(get_trips_db)):
+def delete_course_endpoint(course_id: int, db: Session = Depends(get_golf_db)):
     try:
         ok = crud.delete_course(db, course_id)
     except crud.DeleteBlocked as blocked:
@@ -249,7 +249,7 @@ def delete_course_endpoint(course_id: int, db: Session = Depends(get_trips_db)):
 
 @router.patch("/api/golf-library/images/{image_id}")
 def update_image_endpoint(
-    image_id: int, payload: dict, db: Session = Depends(get_trips_db)
+    image_id: int, payload: dict, db: Session = Depends(get_golf_db)
 ):
     img = crud.update_image(
         db,
@@ -267,7 +267,7 @@ def update_image_endpoint(
 
 
 @router.delete("/api/golf-library/images/{image_id}", status_code=204)
-def delete_image_endpoint(image_id: int, db: Session = Depends(get_trips_db)):
+def delete_image_endpoint(image_id: int, db: Session = Depends(get_golf_db)):
     if not crud.delete_image(db, image_id):
         raise HTTPException(status_code=404, detail="Image not found")
 
@@ -277,7 +277,7 @@ def delete_image_endpoint(image_id: int, db: Session = Depends(get_trips_db)):
 
 @router.post("/api/golf-library/resorts/{resort_id}/link-region")
 def link_resort_region_endpoint(
-    resort_id: int, payload: dict, db: Session = Depends(get_trips_db)
+    resort_id: int, payload: dict, db: Session = Depends(get_golf_db)
 ):
     vm_key = payload.get("vacationmap_region_key")
     resort = crud.link_resort_region(db, resort_id, vm_key)
@@ -288,7 +288,7 @@ def link_resort_region_endpoint(
 
 @router.post("/api/golf-library/courses/{course_id}/link-region")
 def link_course_region_endpoint(
-    course_id: int, payload: dict, db: Session = Depends(get_trips_db)
+    course_id: int, payload: dict, db: Session = Depends(get_golf_db)
 ):
     vm_key = payload.get("vacationmap_region_key")
     course = crud.link_course_region(db, course_id, vm_key)
@@ -299,7 +299,7 @@ def link_course_region_endpoint(
 
 @router.post("/api/golf-library/courses/{course_id}/link-resort")
 def link_course_resort_endpoint(
-    course_id: int, payload: dict, db: Session = Depends(get_trips_db)
+    course_id: int, payload: dict, db: Session = Depends(get_golf_db)
 ):
     try:
         course = crud.link_course_resort(db, course_id, payload.get("resort_id"))
@@ -313,7 +313,7 @@ def link_course_resort_endpoint(
 @router.post("/api/golf-library/images", status_code=201)
 def add_image(
     payload: dict,  # {entity_type, entity_id, url, caption?}
-    db: Session = Depends(get_trips_db),
+    db: Session = Depends(get_golf_db),
 ):
     entity_type = payload.get("entity_type")
     entity_id = payload.get("entity_id")

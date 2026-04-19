@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .database import init_trips_db
+from .database import init_golf_db, init_trips_db
 from .trips.routes import router as trips_router
 from .golf.routes import router as golf_router
 from .yearly.routes import router as yearly_router
@@ -60,6 +60,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     init_trips_db()
+    init_golf_db()
 
 
 app.include_router(trips_router)

@@ -28,7 +28,10 @@ def _read_md_file(filename: str) -> str:
 
 
 def _build_system_prompt(
-    trip: models.TripPlan, vm_db: Session, trips_db: Session | None = None
+    trip: models.TripPlan,
+    vm_db: Session,
+    trips_db: Session | None = None,
+    golf_db: Session | None = None,
 ) -> str:
     """Assemble the system prompt from instructions.md, profile.md, trip state,
     visit history, and (spec 006) trip activity_weights + golf library size."""
@@ -166,12 +169,12 @@ The couple has visited these places before. "never" and "not_soon" destinations 
     # Spec 006 — library-presence hint. Empty library ⇒ encourage user to curate
     # or fall back to general knowledge cleanly.
     library_hint = ""
-    if trips_db is not None:
+    if golf_db is not None:
         try:
-            from . import models as _models
+            from ..golf import models as _golf_models
 
-            resort_count = trips_db.query(_models.GolfResort).count()
-            course_count = trips_db.query(_models.GolfCourse).count()
+            resort_count = golf_db.query(_golf_models.GolfResort).count()
+            course_count = golf_db.query(_golf_models.GolfCourse).count()
             library_hint = (
                 f"## Golf Library Status\n"
                 f"- Curated resorts: {resort_count}\n"
@@ -213,6 +216,7 @@ def handle_chat_message(
     user_content: str,
     trips_db: Session,
     vm_db: Session,
+    golf_db: Session | None = None,
 ) -> schemas.ChatResponse:
     """Process a user message: persist, call Claude with tools, persist response."""
 
@@ -224,7 +228,9 @@ def handle_chat_message(
     trips_db.refresh(conversation)
 
     # 2. Build system prompt and message history
-    system_prompt = _build_system_prompt(trip, vm_db, trips_db=trips_db)
+    system_prompt = _build_system_prompt(
+        trip, vm_db, trips_db=trips_db, golf_db=golf_db
+    )
     messages = _build_messages(conversation)
 
     # 3. Call Claude with tool use loop
@@ -284,6 +290,7 @@ def handle_chat_message(
                         trips_db=trips_db,
                         vm_db=vm_db,
                         trip_id=trip.id,
+                        golf_db=golf_db,
                     )
                     tool_results.append(
                         {

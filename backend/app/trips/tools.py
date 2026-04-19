@@ -182,7 +182,11 @@ TOOL_DEFINITIONS = [
 
 
 def handle_search_destinations(
-    params: dict, trips_db: Session, vm_db: Session, trip_id: int
+    params: dict,
+    trips_db: Session,
+    vm_db: Session,
+    trip_id: int,
+    golf_db: Session | None = None,
 ) -> str:
     month = params["month"]
     search_result = vacationmap.search_destinations(
@@ -259,7 +263,7 @@ def handle_search_destinations(
     # Spec 006 FR-016: annotate each region with counts of curated library
     # entries so Claude can mention specific resorts/courses by name instead
     # of generic "good for golf".
-    annotate_with_curated_library(formatted, trips_db)
+    annotate_with_curated_library(formatted, golf_db)
 
     output = {"destinations": formatted}
     if excluded_due_to_visit:
@@ -736,8 +740,27 @@ def execute_tool(
     trips_db: Session,
     vm_db: Session,
     trip_id: int,
+    golf_db: Session | None = None,
 ) -> str:
     handler = TOOL_HANDLERS.get(tool_name)
     if handler is None:
         return json.dumps({"error": f"Unknown tool: {tool_name}"})
+    # Golf tool handlers (merged into TOOL_HANDLERS via chat.py) take a
+    # dedicated golf_db session because golf tables live in a separate
+    # SQLite engine. Trip-native handlers ignore it.
+    try:
+        if _handler_takes_golf_db(handler):
+            return handler(tool_input, trips_db, vm_db, trip_id, golf_db)
+    except TypeError:
+        pass
     return handler(tool_input, trips_db, vm_db, trip_id)
+
+
+def _handler_takes_golf_db(fn) -> bool:
+    import inspect as _inspect
+
+    try:
+        params = list(_inspect.signature(fn).parameters)
+    except (TypeError, ValueError):
+        return False
+    return "golf_db" in params

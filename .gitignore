@@ -12,6 +12,10 @@ build/
 # One-shot trips.db seed for first-boot on fresh deploys (copied to
 # TRIPS_DB_PATH if the target doesn't exist yet)
 !backend/data/trips.seed.db
+# Bundled golf library (curated resorts/courses). Lives in its own
+# SQLite engine, shipped with the deploy. Override with GOLF_DB_PATH
+# to put it on a volume for persistent UI edits.
+!backend/data/golf.db
 .env
 .env.local
 .env.production

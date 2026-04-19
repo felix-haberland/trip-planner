@@ -1,10 +1,10 @@
 """SQLAlchemy models for the golf library (spec 006).
 
-Tables live in the shared `trips.db` (bound to `TripsBase`), but all golf-
-specific code is kept in this package. Cross-feature references from
-trip-planning tables (suggested/shortlisted/excluded destinations' `resort_id`
-and `course_id` columns) are plain INTEGER — enforced in application code,
-not by the database.
+Tables live in their **own SQLite** at `backend/data/golf.db` (bound to
+`GolfBase`), separate from the trips/yearly Postgres. Inter-engine
+references from trip-planning tables (suggested/shortlisted/excluded
+destinations' `resort_id` / `course_id`) are plain INTEGER columns —
+enforced in application code, not by the database.
 """
 
 from datetime import datetime, timezone
@@ -21,14 +21,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from ..database import TripsBase
+from ..database import GolfBase
 
 
 def _utcnow():
     return datetime.now(timezone.utc)
 
 
-class GolfResort(TripsBase):
+class GolfResort(GolfBase):
     __tablename__ = "golf_resorts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -76,7 +76,7 @@ Index("ix_golf_resorts_vm_region_key", GolfResort.vacationmap_region_key)
 Index("ix_golf_resorts_country", GolfResort.country_code)
 
 
-class GolfCourse(TripsBase):
+class GolfCourse(GolfBase):
     __tablename__ = "golf_courses"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -129,7 +129,7 @@ Index("ix_golf_courses_vm_region_key", GolfCourse.vacationmap_region_key)
 Index("ix_golf_courses_type", GolfCourse.type)
 
 
-class EntityImage(TripsBase):
+class EntityImage(GolfBase):
     """Polymorphic image table. Currently dormant — image extraction is
     disabled because Claude's URL output was too unreliable (hallucinated
     paths, wrong photos). The table is preserved so images can be
