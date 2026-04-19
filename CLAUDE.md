@@ -31,8 +31,8 @@ If you find documentation that is already wrong (you didn't cause it but you spo
 
 **NEVER delete `trips.db` or any user data without explicit user confirmation.**
 
-- When schema changes are needed, use `ALTER TABLE ADD COLUMN` to migrate — never drop and recreate.
-- If a migration is truly destructive (dropping a column, changing a type), ask the user before proceeding.
+- Schema changes are managed by **Alembic** (see "Migrations" section below). Every change goes through a revision file — no hand-rolled migrations in `database.py`.
+- If a migration is truly destructive (dropping a column, changing a type, dropping a table with user data), ask the user before proceeding. Write data migrations explicitly rather than letting autogenerate guess.
 - The `vacation.db` (VacationMap) is **read-only** — never write to it. Only SELECT queries via `vacationmap.py`.
 - Before any `rm`, `DROP`, `DELETE`, or destructive git operation, confirm with the user.
 
@@ -40,9 +40,9 @@ If you find documentation that is already wrong (you didn't cause it but you spo
 
 - **Trip Planner Chatbot** — FastAPI backend (port 8000) + Vue.js 3 frontend (CDN, no build step)
 - **VacationMap** — Separate app at `~/Documents/VacationMap` (port 9000)
-- Two SQLite databases:
-  - `backend/trips.db` (read-write, owns trip plans, suggested/shortlisted/excluded destinations, conversations, messages)
-  - `~/Documents/VacationMap/backend/vacation.db` (read-only, VacationMap regions/scores/visits)
+- Two databases:
+  - **Trips DB** (read-write). Postgres on Railway via `DATABASE_URL`; SQLite in local dev via `TRIPS_DB_PATH` (default `./trips.db`). Owns trip plans, suggested/shortlisted/excluded destinations, conversations, messages, golf library, yearly planner.
+  - **VacationMap DB** (read-only, always SQLite). Bundled at `backend/data/vacation.db`; override with `VACATIONMAP_DB_PATH` if needed.
 - Stable lookup key pattern: `country_code:region_name` (e.g., `PT:Algarve`)
 - The chatbot does NOT directly mutate destination state. Claude calls `suggest_for_review`, which queues a destination for the user to triage. The user clicks Shortlist/Exclude/Link in the UI.
 
@@ -50,7 +50,8 @@ If you find documentation that is already wrong (you didn't cause it but you spo
 
 - Python 3.14, FastAPI, SQLAlchemy 2.x, Pydantic 2.x, Anthropic SDK (Claude Sonnet 4)
 - Vue.js 3 via CDN, static HTML/CSS/JS (no npm/build), `marked` for markdown rendering
-- SQLite for both databases
+- Postgres (prod) or SQLite (local) for the trips DB; Alembic manages the schema
+- SQLite (read-only) for the VacationMap companion DB
 - `httpx` for server-side URL fetching with SSRF guardrails (added by spec 006)
 - Anthropic server-side `web_search_20250305` tool for name-only extraction (spec 006)
 
@@ -140,6 +141,44 @@ All five are read fresh on every message. Edit `.md` files in place — changes 
 
 Unhandled exceptions from any route are appended to `backend/errors.log` (format: `timestamp LEVEL METHOD /path\n<traceback>`). Gitignored via `*.log`. When the user asks "check latest error" or similar, `tail` this file. The handler is in `main.py` and also returns a JSON 500 to the client so the frontend still gets a response shape.
 
+## Migrations
+
+Schema is managed by **Alembic** (`backend/alembic/`). At startup, `app.database.init_trips_db()`:
+1. Imports every ORM module so `TripsBase.metadata` is fully populated.
+2. Detects a pre-Alembic DB (schema exists, no `alembic_version` table) and `alembic stamp head`s it so we don't try to recreate tables.
+3. Runs `alembic upgrade head` to apply any pending revisions.
+4. Runs the bundled-seed loader exactly once, when `golf_resorts` is empty.
+
+### Adding a migration
+
+```bash
+cd backend && source venv/bin/activate
+
+# 1. Edit the SQLAlchemy model(s).
+# 2. Autogenerate a revision — Alembic diffs models against the current DB.
+alembic revision --autogenerate -m "short description"
+
+# 3. REVIEW the generated file in backend/alembic/versions/. Autogenerate
+#    sometimes produces incorrect DDL for type changes, enum changes, or
+#    check constraints; hand-edit as needed.
+# 4. Apply locally.
+alembic upgrade head
+```
+
+`alembic/env.py` pulls the connection URL from `app.database.TRIPS_DATABASE_URL` (which respects `DATABASE_URL` / `TRIPS_DB_PATH`), so migrations target the same DB the app uses. `render_as_batch` is enabled on SQLite so `ALTER COLUMN`-style ops work via table rebuilds; Postgres handles them natively.
+
+### Production (Railway)
+
+- `DATABASE_URL` is provided by the Postgres plugin.
+- `init_trips_db()` runs on every deploy — `alembic upgrade head` applies any unshipped migrations.
+- On a fresh volume, the bundled `backend/data/trips.seed.db` is copied row-by-row via SQLAlchemy Core (handles dialect + datetime coercion), then Postgres sequences are reset to `MAX(id) + 1`. `DISABLE_TRIPS_SEED=1` skips the loader (used by tests).
+
+### Gotchas
+
+- **Never edit a shipped migration**. Add a new one instead. Other environments may already be at that revision.
+- **Data migrations**: for data transforms (e.g. backfilling a column after a new NOT NULL), write them inline in the migration file using `op.execute()` or an orm-bound session — don't do it in application code.
+- **Local dev fresh-start**: `rm backend/trips.db && uvicorn app.main:app --reload` → Alembic builds the schema, the seed loader populates the golf library.
+
 ## Recent Learnings
 
 - **Excluded reasons matter**: The system prompt now flags excluded destinations as "RESPECT THESE DECISIONS" because Claude was previously re-suggesting them. Reasons like "too touristy" or "visited recently" reveal patterns that apply to similar destinations.
@@ -150,7 +189,7 @@ Unhandled exceptions from any route are appended to `backend/errors.log` (format
 - **Polymorphic FK is acceptable here**: `entity_images` links to either `golf_resorts` or `golf_courses` via `(entity_type, entity_id)`. SQLite doesn't enforce this at the DB level; it's enforced in `crud.py`. Worth the simplification over two parallel tables.
 - **Seed script costs money**: the ~120 curated entries run through real Claude + web search calls. Document cost/runtime in the script's docstring; rate-limit between calls to stay under Anthropic API limits.
 - **Polymorphic conversation owner (spec 007)**: `conversations` was rebuilt from `trip_id` FK to `(owner_type, owner_id)`. No DB-level FK — different owners live in different tables. Cascade-on-delete must be hand-rolled in each owner's `delete_*` function (see `trips.crud.delete_trip` + `yearly.crud.delete_year_plan`). `conversation_messages.trip_id` is a nullable legacy column; keep populating it for trip-owned messages so older tooling still has the join.
-- **SQLite schema rebuilds are sometimes the only path**: SQLite can't `ALTER COLUMN` to drop NOT NULL or drop an FK. Spec 007's `conversations` rebuild uses an `INSERT-SELECT / DROP / RENAME` inside a single transaction with FKs disabled. Guarded by column presence — idempotent. Document any such rebuild clearly; it's OK under Constitution I as long as every row is preserved.
+- **SQLite schema rebuilds** *(historical — replaced by Alembic `render_as_batch`)*: early migrations used hand-rolled `INSERT-SELECT / DROP / RENAME` transactions to work around SQLite's ALTER limitations. Alembic's batch mode now handles this automatically. Future schema changes go through `alembic revision`; the old helper functions were deleted when the Alembic baseline landed.
 - **Slot overlap validation lives in crud, not DB**: SQLite can't express "no overlap within year_plan_id" as a constraint. `yearly.crud._check_no_overlap` uses a packed month index (`year * 12 + month - 1`) and falls back to date comparison when both slots supply exact dates. The month-index approach handles year-crossing (Dec 2026 → Jan 2027) naturally.
 - **Slot-as-trip-intent (F008, supersedes spec 007's placements)**: a slot carries the trip idea (`theme`, label, timing, `activity_weights`); destination discovery happens inside a linked `trip_plan` via `slots.trip_plan_id`. The trip chat reads `yearly.crud.slot_for_trip(trip.id)` and injects the slot intent into the system prompt when present.
 - **Year Options hierarchy (F009)**: the real user need is *comparable* whole-year arrangements, not a single editable plan. Model is now `YearPlan → YearOption → Slot`. A YearPlan holds the user's stable intent + `windows` (JSON); YearOptions are siblings representing candidate years; slots live inside one Option. Overlap validation is per-Option (two Options can both place a June trip — they're alternatives). The AI's `generate_year_option` tool creates a whole new Option in one shot; `propose_slot_in_option` refines an existing one. `fork_option` clones slots but not `trip_plan_id` — the forked Option starts with fresh destination discovery per slot. `mark_option_chosen` is purely informational (no cascade delete of siblings; user keeps them as reference).

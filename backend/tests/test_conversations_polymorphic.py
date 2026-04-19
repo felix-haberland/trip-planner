@@ -1,79 +1,17 @@
-"""Tests for the polymorphic Conversation owner refactor (spec 007).
+"""Tests for the polymorphic Conversation owner shape.
 
-Covers the one-time legacy table rebuild, cross-owner isolation, and the
-message dispatcher that routes `POST /api/conversations/{id}/messages` based
-on owner_type.
+Covers cross-owner isolation and the message dispatcher that routes
+`POST /api/conversations/{id}/messages` based on owner_type.
+
+(The one-time legacy-table-rebuild migration test was removed when we moved
+to Alembic — the pre-polymorphic shape no longer exists in the wild and
+the baseline migration creates the polymorphic shape directly.)
 """
 
 from __future__ import annotations
 
 import os
-import sqlite3
 import tempfile
-
-
-def test_legacy_conversation_rebuild_preserves_rows(monkeypatch):
-    """Create a legacy-shape conversations table, run init_trips_db, confirm
-    rows survive with owner_type='trip' and owner_id=trip_id."""
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
-    tmp.close()
-    try:
-        conn = sqlite3.connect(tmp.name)
-        conn.executescript("""
-            CREATE TABLE trip_plans (
-              id INTEGER PRIMARY KEY,
-              name TEXT NOT NULL,
-              description TEXT NOT NULL,
-              target_month TEXT,
-              status TEXT NOT NULL DEFAULT 'active',
-              activity_weights TEXT NOT NULL DEFAULT '{}',
-              created_at DATETIME NOT NULL,
-              updated_at DATETIME NOT NULL
-            );
-            CREATE TABLE conversations (
-              id INTEGER PRIMARY KEY,
-              trip_id INTEGER NOT NULL REFERENCES trip_plans(id) ON DELETE CASCADE,
-              name TEXT NOT NULL DEFAULT 'Main',
-              status TEXT NOT NULL DEFAULT 'active',
-              created_at DATETIME NOT NULL
-            );
-            INSERT INTO trip_plans VALUES (1, 'T', 'desc', NULL, 'active', '{}',
-                '2024-01-01', '2024-01-01');
-            INSERT INTO conversations VALUES
-                (10, 1, 'Main', 'active', '2024-01-01'),
-                (11, 1, 'Follow-up', 'archived', '2024-02-01');
-            """)
-        conn.commit()
-        conn.close()
-
-        monkeypatch.setenv("TRIPS_DB_PATH", tmp.name)
-
-        # Purge + re-import so database.py picks up the new path.
-        import sys
-
-        for m in list(sys.modules):
-            if m == "app" or m.startswith("app."):
-                del sys.modules[m]
-
-        from app import database as db_module
-
-        db_module.init_trips_db()
-
-        conn = sqlite3.connect(tmp.name)
-        rows = conn.execute(
-            "SELECT id, owner_type, owner_id, name, status FROM conversations ORDER BY id"
-        ).fetchall()
-        conn.close()
-
-        assert rows == [
-            (10, "trip", 1, "Main", "active"),
-            (11, "trip", 1, "Follow-up", "archived"),
-        ]
-    finally:
-        try:
-            os.unlink(tmp.name)
-        except OSError:
-            pass
 
 
 def test_conversations_isolated_by_owner_type(trips_session):

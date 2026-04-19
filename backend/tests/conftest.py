@@ -24,10 +24,16 @@ def _purge_app_modules() -> None:
 
 @pytest.fixture()
 def trips_session(monkeypatch):
-    """Yield a SQLAlchemy session bound to a throwaway trips DB."""
+    """Yield a SQLAlchemy session bound to a throwaway trips DB.
+
+    The bundled seed loader is disabled in tests so each test starts with a
+    truly empty DB — otherwise cascade/delete tests would see 48 curated
+    resorts + 10 trips from the seed snapshot.
+    """
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
     tmp.close()
     monkeypatch.setenv("TRIPS_DB_PATH", tmp.name)
+    monkeypatch.setenv("DISABLE_TRIPS_SEED", "1")
 
     _purge_app_modules()
 
