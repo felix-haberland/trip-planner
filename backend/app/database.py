@@ -68,6 +68,9 @@ def init_trips_db():
     # users can sketch alternatives inside a single option cell. Drops the
     # UNIQUE constraint from F010 by rebuilding the slots table.
     _migrate_slot_drop_unique_option_window()
+    # F012: add `excluded_reason` to year_options and slots so users can
+    # exclude a candidate with a note, and the chatbot learns from it.
+    _migrate_yearly_excluded_reason()
 
     # 1. Create any missing tables (idempotent, never drops).
     TripsBase.metadata.create_all(bind=trips_engine)
@@ -295,6 +298,28 @@ def _migrate_yearly_to_year_options():
         if "year_plan_id" in slot_cols and "year_option_id" not in slot_cols:
             with trips_engine.begin() as conn:
                 conn.execute(text("DROP TABLE slots"))
+
+
+def _migrate_yearly_excluded_reason():
+    """F012: add `excluded_reason TEXT` to `year_options` and `slots`.
+
+    Both columns are nullable and only populated when status='excluded'.
+    Idempotent — guarded by column presence.
+    """
+    from sqlalchemy import inspect as sqla_inspect, text
+
+    inspector = sqla_inspect(trips_engine)
+    with trips_engine.begin() as conn:
+        if "year_options" in inspector.get_table_names():
+            cols = {c["name"] for c in inspector.get_columns("year_options")}
+            if "excluded_reason" not in cols:
+                conn.execute(
+                    text("ALTER TABLE year_options ADD COLUMN excluded_reason TEXT")
+                )
+        if "slots" in inspector.get_table_names():
+            cols = {c["name"] for c in inspector.get_columns("slots")}
+            if "excluded_reason" not in cols:
+                conn.execute(text("ALTER TABLE slots ADD COLUMN excluded_reason TEXT"))
 
 
 def _migrate_slot_drop_unique_option_window():

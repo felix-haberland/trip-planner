@@ -140,7 +140,7 @@ def delete_year_plan(db: Session, year_plan_id: int) -> bool:
 # =============================================================================
 
 
-_ALLOWED_OPTION_STATUS = ("draft", "chosen", "archived")
+_ALLOWED_OPTION_STATUS = ("draft", "chosen", "excluded", "archived")
 
 
 def create_year_option(
@@ -197,6 +197,11 @@ def update_year_option(
         if body.status not in _ALLOWED_OPTION_STATUS:
             raise ValueError(f"invalid option status: {body.status}")
         option.status = body.status
+        # Clear the reason when leaving excluded.
+        if body.status != "excluded":
+            option.excluded_reason = None
+    if body.excluded_reason is not None:
+        option.excluded_reason = body.excluded_reason
     if body.position is not None:
         option.position = body.position
     option.updated_at = _utcnow()
@@ -242,6 +247,42 @@ def unpick_option(db: Session, option_id: int) -> Optional[models.YearOption]:
         return None
     if option.status == "chosen":
         option.status = "draft"
+        option.updated_at = _utcnow()
+        plan = get_year_plan(db, option.year_plan_id)
+        if plan:
+            plan.updated_at = _utcnow()
+        db.commit()
+        db.refresh(option)
+    return option
+
+
+def exclude_option(
+    db: Session, option_id: int, reason: str
+) -> Optional[models.YearOption]:
+    option = get_year_option(db, option_id)
+    if option is None:
+        return None
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValueError("reason is required when excluding an option")
+    option.status = "excluded"
+    option.excluded_reason = reason
+    option.updated_at = _utcnow()
+    plan = get_year_plan(db, option.year_plan_id)
+    if plan:
+        plan.updated_at = _utcnow()
+    db.commit()
+    db.refresh(option)
+    return option
+
+
+def unexclude_option(db: Session, option_id: int) -> Optional[models.YearOption]:
+    option = get_year_option(db, option_id)
+    if option is None:
+        return None
+    if option.status == "excluded":
+        option.status = "draft"
+        option.excluded_reason = None
         option.updated_at = _utcnow()
         plan = get_year_plan(db, option.year_plan_id)
         if plan:
@@ -361,7 +402,7 @@ def _check_no_overlap(
             )
 
 
-_ALLOWED_SLOT_STATUS = ("open", "proposed", "archived")
+_ALLOWED_SLOT_STATUS = ("open", "proposed", "excluded", "archived")
 
 
 def _resolve_window(plan: models.YearPlan, window_index: int) -> dict:
@@ -499,6 +540,8 @@ def update_slot(
         if body.status not in _ALLOWED_SLOT_STATUS:
             raise ValueError(f"invalid slot status: {body.status}")
         slot.status = body.status
+        if body.status != "excluded":
+            slot.excluded_reason = None
     if body.position is not None:
         slot.position = body.position
     # Date overlap between alternatives in the same option is allowed.
@@ -557,6 +600,46 @@ def unreview_slot(db: Session, slot_id: int) -> Optional[models.Slot]:
         return None
     if slot.status == "open":
         slot.status = "proposed"
+        slot.updated_at = _utcnow()
+        option = get_year_option(db, slot.year_option_id)
+        if option:
+            option.updated_at = _utcnow()
+            plan = get_year_plan(db, option.year_plan_id)
+            if plan:
+                plan.updated_at = _utcnow()
+        db.commit()
+        db.refresh(slot)
+    return slot
+
+
+def exclude_slot(db: Session, slot_id: int, reason: str) -> Optional[models.Slot]:
+    slot = get_slot(db, slot_id)
+    if slot is None:
+        return None
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValueError("reason is required when excluding a trip idea")
+    slot.status = "excluded"
+    slot.excluded_reason = reason
+    slot.updated_at = _utcnow()
+    option = get_year_option(db, slot.year_option_id)
+    if option:
+        option.updated_at = _utcnow()
+        plan = get_year_plan(db, option.year_plan_id)
+        if plan:
+            plan.updated_at = _utcnow()
+    db.commit()
+    db.refresh(slot)
+    return slot
+
+
+def unexclude_slot(db: Session, slot_id: int) -> Optional[models.Slot]:
+    slot = get_slot(db, slot_id)
+    if slot is None:
+        return None
+    if slot.status == "excluded":
+        slot.status = "open"
+        slot.excluded_reason = None
         slot.updated_at = _utcnow()
         option = get_year_option(db, slot.year_option_id)
         if option:
@@ -843,6 +926,7 @@ def slot_to_detail(slot: models.Slot, db: Session) -> schemas.SlotDetail:
         constraints_note=slot.constraints_note,
         activity_weights=_parse_weights(slot.activity_weights),
         status=slot.status,
+        excluded_reason=slot.excluded_reason,
         position=slot.position,
         trip_plan_id=slot.trip_plan_id,
         trip=_trip_summary(db, slot.trip_plan_id),
@@ -861,6 +945,7 @@ def option_to_detail(
         summary=option.summary or "",
         created_by=option.created_by,
         status=option.status,
+        excluded_reason=option.excluded_reason,
         position=option.position,
         slots=[slot_to_detail(s, db) for s in option.slots],
         created_at=option.created_at,

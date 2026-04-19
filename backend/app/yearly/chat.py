@@ -68,6 +68,8 @@ def _format_slot_block(slot: models.Slot) -> str:
     lines = [f"    * {slot.label or '(no label)'} — " + " | ".join(meta)]
     if slot.theme:
         lines.append(f"      Theme: {slot.theme}")
+    if slot.status == "excluded" and slot.excluded_reason:
+        lines.append(f"      EXCLUDED REASON: {slot.excluded_reason}")
     return "\n".join(lines)
 
 
@@ -79,11 +81,22 @@ def _format_option_block(option: models.YearOption) -> str:
     lines = [header]
     if option.summary:
         lines.append(f"  _{option.summary}_")
+    if option.status == "excluded" and option.excluded_reason:
+        lines.append(f"  EXCLUDED REASON: {option.excluded_reason}")
+    non_excluded_slots = [s for s in option.slots if s.status != "excluded"]
+    excluded_slots = [s for s in option.slots if s.status == "excluded"]
     if not option.slots:
         lines.append("  (no slots yet)")
     else:
-        for s in option.slots:
+        for s in non_excluded_slots:
             lines.append(_format_slot_block(s))
+        if excluded_slots:
+            lines.append(
+                f"  Excluded ideas in this option ({len(excluded_slots)}) "
+                "— RESPECT THESE DECISIONS; do not re-propose:"
+            )
+            for s in excluded_slots:
+                lines.append(_format_slot_block(s))
     return "\n".join(lines)
 
 
@@ -102,12 +115,21 @@ def _build_system_prompt(
         else "(no windows entered yet — ask the user which weeks/months they're available)"
     )
 
-    options = year_plan.options
-    option_blocks = (
-        "\n\n".join(_format_option_block(o) for o in options)
-        if options
-        else "(no options yet — the user may want you to generate a few)"
-    )
+    options = list(year_plan.options)
+    active_options = [o for o in options if o.status != "excluded"]
+    excluded_options = [o for o in options if o.status == "excluded"]
+    if options:
+        option_blocks = "\n\n".join(
+            _format_option_block(o) for o in active_options
+        ) or ("(all options are excluded — wait for the user or propose a new one)")
+        if excluded_options:
+            option_blocks += (
+                "\n\n### Excluded options "
+                f"({len(excluded_options)}) — RESPECT THESE DECISIONS; do not re-propose:\n\n"
+                + "\n\n".join(_format_option_block(o) for o in excluded_options)
+            )
+    else:
+        option_blocks = "(no options yet — the user may want you to generate a few)"
 
     # Sibling plans for the same year (genuinely different contexts).
     sibling_plans = (
@@ -182,7 +204,11 @@ trip per open window. The user wants to see options side-by-side and pick.
   those.
 - Do not create overlapping slots inside one Option.
 - Do not pick the "winner" for the user — suggest, compare, and let them
-  call it."""
+  call it.
+- **Respect excluded options and excluded trip ideas.** Do not re-propose
+  anything the user has excluded (listed above with their reasons). The
+  reasons often generalize — e.g., "too skewed toward one activity"
+  applies to similar mono-theme options, not just the one excluded."""
 
     visits = vacationmap.get_visit_history(vm_db)
     if visits:

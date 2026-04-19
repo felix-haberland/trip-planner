@@ -173,6 +173,50 @@ def test_option_unpick_no_op_when_not_chosen(trips_session):
     assert reverted.status == "draft"
 
 
+def test_option_exclude_stores_reason(trips_session):
+    from app.yearly import crud
+
+    plan = _plan(trips_session)
+    opt = _option(trips_session, plan.id)
+    excluded = crud.exclude_option(trips_session, opt.id, "too skewed to one theme")
+    assert excluded.status == "excluded"
+    assert excluded.excluded_reason == "too skewed to one theme"
+
+
+def test_option_exclude_requires_reason(trips_session):
+    from app.yearly import crud
+
+    plan = _plan(trips_session)
+    opt = _option(trips_session, plan.id)
+    with pytest.raises(ValueError):
+        crud.exclude_option(trips_session, opt.id, "   ")
+
+
+def test_option_unexclude_clears_reason(trips_session):
+    from app.yearly import crud
+
+    plan = _plan(trips_session)
+    opt = _option(trips_session, plan.id)
+    crud.exclude_option(trips_session, opt.id, "nope")
+    reverted = crud.unexclude_option(trips_session, opt.id)
+    assert reverted.status == "draft"
+    assert reverted.excluded_reason is None
+
+
+def test_slot_exclude_and_unexclude(trips_session):
+    from app.yearly import crud
+
+    plan = _plan(trips_session)
+    opt = _option(trips_session, plan.id)
+    slot = _slot(trips_session, opt.id, window_index=0)
+    excluded = crud.exclude_slot(trips_session, slot.id, "partner hates this")
+    assert excluded.status == "excluded"
+    assert excluded.excluded_reason == "partner hates this"
+    restored = crud.unexclude_slot(trips_session, slot.id)
+    assert restored.status == "open"
+    assert restored.excluded_reason is None
+
+
 def test_fork_option_clones_slots_not_trip_links(trips_session):
     from app.yearly import crud
 

@@ -201,7 +201,8 @@ year_plans ───< year_options ───< slots ──(optional 1:1)──> 
 | name | TEXT NOT NULL | "Adventurous mix", "Golf-heavy", "Something different". |
 | summary | TEXT NOT NULL DEFAULT '' | One-line description of the option's theme. |
 | created_by | TEXT NOT NULL DEFAULT 'user' | `'ai'` (via `generate_year_option`) or `'user'` (manual/fork). |
-| status | TEXT NOT NULL DEFAULT 'draft' | `'draft'` \| `'chosen'` (the user's pick; informational) \| `'archived'`. |
+| status | TEXT NOT NULL DEFAULT 'draft' | `'draft'` \| `'chosen'` (user's pick; informational) \| `'excluded'` (rejected with reason; surfaced to advisor) \| `'archived'`. |
+| excluded_reason | TEXT NULL | Populated when `status='excluded'`. Read by the advisor so it learns from the user's no-go reasoning. |
 | position | INTEGER NOT NULL DEFAULT 0 | Display order. |
 | created_at / updated_at | DATETIME | |
 
@@ -221,7 +222,8 @@ year_plans ───< year_options ───< slots ──(optional 1:1)──> 
 | climate_hint | TEXT NULL | |
 | constraints_note | TEXT NULL | |
 | activity_weights | TEXT NOT NULL DEFAULT '{}' | Slot-level activity mix. Fed into the linked trip's `activity_weights` on `start-trip`. |
-| status | TEXT NOT NULL DEFAULT 'open' | `'open'` \| `'proposed'` (AI-suggested, awaiting user accept) \| `'archived'`. |
+| status | TEXT NOT NULL DEFAULT 'open' | `'open'` \| `'proposed'` (AI-suggested, awaiting user accept) \| `'excluded'` (rejected with reason) \| `'archived'`. |
+| excluded_reason | TEXT NULL | Populated when `status='excluded'`. Surfaced to the year advisor as "do not re-propose" context. |
 | position | INTEGER NOT NULL DEFAULT 0 | |
 | trip_plan_id | INTEGER NULL | FK → `trip_plans.id` ON DELETE SET NULL. Populated when the user starts destination discovery. |
 

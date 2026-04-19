@@ -198,6 +198,35 @@ def unpick(option_id: int, db: Session = Depends(get_trips_db)):
     return crud.option_to_detail(option, db)
 
 
+@router.post(
+    "/api/year-options/{option_id}/exclude",
+    response_model=schemas.YearOptionDetail,
+)
+def exclude(
+    option_id: int,
+    body: schemas.ExcludeReasonBody,
+    db: Session = Depends(get_trips_db),
+):
+    try:
+        option = crud.exclude_option(db, option_id, body.reason)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if option is None:
+        raise HTTPException(status_code=404, detail="Year option not found")
+    return crud.option_to_detail(option, db)
+
+
+@router.post(
+    "/api/year-options/{option_id}/unexclude",
+    response_model=schemas.YearOptionDetail,
+)
+def unexclude(option_id: int, db: Session = Depends(get_trips_db)):
+    option = crud.unexclude_option(db, option_id)
+    if option is None:
+        raise HTTPException(status_code=404, detail="Year option not found")
+    return crud.option_to_detail(option, db)
+
+
 # ---------------------------------------------------------------------------
 # Slots (under a YearOption)
 # ---------------------------------------------------------------------------
@@ -276,6 +305,35 @@ def accept_slot(slot_id: int, db: Session = Depends(get_trips_db)):
 def unreview_slot(slot_id: int, db: Session = Depends(get_trips_db)):
     """Revert an accepted trip idea ('open') back to 'proposed'."""
     slot = crud.unreview_slot(db, slot_id)
+    if slot is None:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    return crud.slot_to_detail(slot, db)
+
+
+@router.post(
+    "/api/slots/{slot_id}/exclude",
+    response_model=schemas.SlotDetail,
+)
+def exclude_slot(
+    slot_id: int,
+    body: schemas.ExcludeReasonBody,
+    db: Session = Depends(get_trips_db),
+):
+    try:
+        slot = crud.exclude_slot(db, slot_id, body.reason)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if slot is None:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    return crud.slot_to_detail(slot, db)
+
+
+@router.post(
+    "/api/slots/{slot_id}/unexclude",
+    response_model=schemas.SlotDetail,
+)
+def unexclude_slot(slot_id: int, db: Session = Depends(get_trips_db)):
+    slot = crud.unexclude_slot(db, slot_id)
     if slot is None:
         raise HTTPException(status_code=404, detail="Slot not found")
     return crud.slot_to_detail(slot, db)

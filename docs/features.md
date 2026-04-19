@@ -40,6 +40,10 @@ Year-level plan with time-window Slots and year-plan-level TripOptions placed in
 **Date:** 2026-04-19 · **Status:** superseded by F009
 Slot = trip intent with `trip_plan_id` bridge. Shipped but didn't support comparing whole-year alternatives — you could only edit one plan at a time.
 
+## F012 — Yearly planner: exclude with reason
+**Date:** 2026-04-19 · **Status:** shipped
+Added an `excluded` status + `excluded_reason` to both `year_options` and `slots`. Backend: `crud.exclude_option/exclude_slot` (reason required) + unexclude (clears reason on exit); new routes `POST /api/year-options/{id}/{exclude,unexclude}` and `POST /api/slots/{id}/{exclude,unexclude}`. Advisor prompt: excluded options and ideas are listed in a dedicated "RESPECT THESE DECISIONS" block with their reasons, with a role-prompt rule not to re-propose them. Frontend: per-option Exclude button (prompt for reason); excluded rows dim + show the reason inline; page-level toggle to hide/show excluded option rows. Per-cell Exclude on trip ideas; excluded ideas collapsed behind "Show N excluded ▾" toggle that reveals them with their reason + Un-exclude button.
+
 ## F010–F011 — Yearly planner: grid UX + alternatives per cell
 **Date:** 2026-04-19 · **Status:** shipped
 UX pass on F009. Renamed "slot" → "trip idea" in the UI. Every trip idea is anchored to one window (`slots.window_index NOT NULL`); dates are inherited from the window by default. Year-plan detail renders as a grid with options as rows and windows as columns — each cell can hold multiple alternative ideas (Golf or Beach in the same June cell of one option). Per-cell actions: "+ Add another" (manual) and "✨ Suggest more" (AI asks for count + guidance, then calls `propose_slot_in_option` for that cell). Top-level "Ask AI for options" nudges the AI to produce options meaningfully different from existing ones to avoid duplicate output. Dropped the per-option date-overlap check and the F010 `UNIQUE(option_id, window_index)` constraint.

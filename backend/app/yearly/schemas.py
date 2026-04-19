@@ -73,8 +73,13 @@ class YearOptionCreate(BaseModel):
 class YearOptionUpdate(BaseModel):
     name: Optional[str] = None
     summary: Optional[str] = None
-    status: Optional[str] = None  # 'draft' | 'chosen' | 'archived'
+    status: Optional[str] = None  # 'draft' | 'chosen' | 'excluded' | 'archived'
+    excluded_reason: Optional[str] = None
     position: Optional[int] = None
+
+
+class ExcludeReasonBody(BaseModel):
+    reason: str = Field(..., min_length=1)
 
 
 # --- Slot (now child of YearOption) ---------------------------------------
@@ -147,6 +152,7 @@ class SlotDetail(BaseModel):
     constraints_note: Optional[str] = None
     activity_weights: dict = {}
     status: str
+    excluded_reason: Optional[str] = None
     position: int
     trip_plan_id: Optional[int] = None
     trip: Optional[LinkedTripSummary] = None
@@ -171,6 +177,7 @@ class YearOptionDetail(BaseModel):
     summary: str = ""
     created_by: str
     status: str
+    excluded_reason: Optional[str] = None
     position: int
     slots: list[SlotDetail] = []
     created_at: datetime
@@ -187,6 +194,7 @@ class YearOptionSummary(BaseModel):
     summary: str
     created_by: str
     status: str
+    excluded_reason: Optional[str] = None
     position: int
     slot_count: int
     linked_trip_count: int

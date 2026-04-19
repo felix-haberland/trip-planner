@@ -88,7 +88,10 @@ class YearOption(TripsBase):
     created_by = Column(String, nullable=False, default="user")
     status = Column(
         String, nullable=False, default="draft"
-    )  # 'draft' | 'chosen' | 'archived'
+    )  # 'draft' | 'chosen' | 'excluded' | 'archived'
+    # Populated when status='excluded'. Surfaced in the advisor's system
+    # prompt so it learns from the user's no-go reasoning.
+    excluded_reason = Column(Text, nullable=True)
     position = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
     updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
@@ -141,7 +144,9 @@ class Slot(TripsBase):
     activity_weights = Column(Text, nullable=False, default="{}")
     status = Column(
         String, nullable=False, default="open"
-    )  # 'open' | 'proposed' | 'archived'
+    )  # 'open' | 'proposed' | 'excluded' | 'archived'
+    # Populated when status='excluded' — why the user rejected this idea.
+    excluded_reason = Column(Text, nullable=True)
     position = Column(Integer, nullable=False, default=0)
     trip_plan_id = Column(
         Integer,

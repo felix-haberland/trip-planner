@@ -1302,21 +1302,39 @@
         <div v-if="view === 'year-detail' && currentYearPlan" class="planning-layout">
             <div class="year-detail">
                 <div class="year-detail-header">
-                    <div>
-                        <h2>
+                    <div class="year-detail-title">
+                        <div v-if="editingYearPlanField === 'name'" class="inline-edit">
+                            <input v-model="yearPlanFieldDraft"
+                                   class="inline-edit-input inline-edit-input-large"
+                                   @keyup.enter="saveYearPlanField"
+                                   @keyup.esc="cancelEditYearPlanField"
+                                   ref="yearPlanNameInput">
+                            <button class="btn btn-small btn-primary" @click="saveYearPlanField">Save</button>
+                            <button class="btn btn-small" @click="cancelEditYearPlanField">Cancel</button>
+                        </div>
+                        <h2 v-else class="inline-editable" @click="startEditYearPlanField('name')" title="Click to rename">
                             {{ currentYearPlan.name }}
                             <span class="year-badge">{{ currentYearPlan.year }}</span>
                             <span class="status-badge" :class="currentYearPlan.status">{{ currentYearPlan.status }}</span>
                         </h2>
-                        <p class="year-intent" @click="editYearIntent" title="Click to edit">
+
+                        <div v-if="editingYearPlanField === 'intent'" class="inline-edit inline-edit-block">
+                            <textarea v-model="yearPlanFieldDraft" rows="2"
+                                      class="inline-edit-input"
+                                      @keyup.esc="cancelEditYearPlanField"
+                                      placeholder="What's your overall intent for this year? (balanced, adventurous, etc.)"></textarea>
+                            <div class="inline-edit-actions">
+                                <button class="btn btn-small btn-primary" @click="saveYearPlanField">Save</button>
+                                <button class="btn btn-small" @click="cancelEditYearPlanField">Cancel</button>
+                            </div>
+                        </div>
+                        <p v-else class="year-intent inline-editable"
+                           :class="{ 'year-intent-empty': !currentYearPlan.intent }"
+                           @click="startEditYearPlanField('intent')" title="Click to edit">
                             {{ currentYearPlan.intent || '(no intent — click to add)' }}
                         </p>
                     </div>
                     <div class="year-detail-actions">
-                        <button class="btn btn-small" @click="renameYearPlan">Rename</button>
-                        <button class="btn btn-small" @click="toggleArchiveYearPlan">
-                            {{ currentYearPlan.status === 'archived' ? 'Unarchive' : 'Archive' }}
-                        </button>
                         <button class="btn btn-small btn-danger" @click="deleteYearPlan(currentYearPlan.id, currentYearPlan.name)">Delete</button>
                     </div>
                 </div>
@@ -1324,7 +1342,7 @@
                 <!-- Windows editor (shared across options) -->
                 <section class="year-section">
                     <div class="year-section-header">
-                        <h3>Open windows</h3>
+                        <h3>Vacation Windows</h3>
                         <button v-if="!editingWindows" class="btn btn-small" @click="startEditWindows">
                             {{ (currentYearPlan.windows || []).length ? 'Edit' : '+ Add windows' }}
                         </button>
@@ -1338,7 +1356,7 @@
                         </div>
                         <ul v-else class="window-list">
                             <li v-for="(w, i) in currentYearPlan.windows" :key="i">
-                                <strong>[{{ i }}]</strong>
+                                <strong>#{{ i + 1 }}</strong>
                                 <span v-if="w.label" class="window-label">{{ w.label }}</span>
                                 <span class="window-dates">{{ w.start_date }} → {{ w.end_date }}</span>
                                 <span v-if="w.duration_hint" class="window-duration">~{{ w.duration_hint }}d</span>
@@ -1347,15 +1365,35 @@
                         </ul>
                     </div>
                     <div v-else class="window-edit">
-                        <div v-for="(w, i) in draftWindows" :key="i" class="window-row">
-                            <span class="window-idx">[{{ i }}]</span>
-                            <input v-model="w.label" placeholder="Label (optional)" class="window-label-input">
-                            <input type="date" v-model="w.start_date">
-                            <span>→</span>
-                            <input type="date" v-model="w.end_date">
-                            <input type="number" v-model.number="w.duration_hint" placeholder="days" class="input-small" min="1" max="365">
-                            <input v-model="w.constraints" placeholder="constraints" class="window-constraints-input">
-                            <button class="btn-icon btn-exclude" @click="removeWindowRow(i)" title="Remove">✗</button>
+                        <div v-for="(w, i) in draftWindows" :key="i" class="window-card">
+                            <div class="window-card-header">
+                                <span class="window-idx">Window #{{ i + 1 }}</span>
+                                <button class="btn btn-small btn-danger" @click="removeWindowRow(i)" title="Remove this window">Remove</button>
+                            </div>
+                            <div class="window-card-body">
+                                <label class="form-field">
+                                    <span class="form-field-label">Label (optional)</span>
+                                    <input v-model="w.label" placeholder="e.g. June break">
+                                </label>
+                                <div class="form-field-row">
+                                    <label class="form-field form-field-compact">
+                                        <span class="form-field-label">Start</span>
+                                        <input type="date" v-model="w.start_date">
+                                    </label>
+                                    <label class="form-field form-field-compact">
+                                        <span class="form-field-label">End</span>
+                                        <input type="date" v-model="w.end_date">
+                                    </label>
+                                    <label class="form-field form-field-compact">
+                                        <span class="form-field-label">Duration (days)</span>
+                                        <input type="number" v-model.number="w.duration_hint" placeholder="e.g. 14" min="1" max="365">
+                                    </label>
+                                </div>
+                                <label class="form-field">
+                                    <span class="form-field-label">Notes for AI (optional)</span>
+                                    <input v-model="w.constraints" placeholder="e.g. school holidays, Fridays are a hard stop">
+                                </label>
+                            </div>
                         </div>
                         <div class="window-edit-actions">
                             <button class="btn btn-small" @click="addWindowRow">+ Add window</button>
@@ -1370,6 +1408,11 @@
                     <div class="year-section-header">
                         <h3>Year options</h3>
                         <div class="year-section-actions">
+                            <button v-if="(currentYearPlan.options || []).some(o => o.status === 'excluded')"
+                                    class="btn btn-small" @click="toggleShowExcludedOptions">
+                                {{ showExcludedOptions ? 'Hide' : 'Show' }} excluded
+                                ({{ (currentYearPlan.options || []).filter(o => o.status === 'excluded').length }})
+                            </button>
                             <button class="btn btn-small btn-primary" @click="askAIForOptions" :disabled="yearSending || !(currentYearPlan.windows || []).length">Ask AI for options</button>
                             <button class="btn btn-small" @click="createOption">+ Blank option</button>
                         </div>
@@ -1392,46 +1435,79 @@
 
                             <!-- Window column headers -->
                             <div v-for="(win, widx) in currentYearPlan.windows" :key="'wh-'+widx" class="grid-cell grid-window-header">
-                                <strong>{{ win.label || `Window ${widx}` }}</strong>
+                                <strong>{{ win.label || `Window #${widx + 1}` }}</strong>
                                 <div class="win-dates">{{ win.start_date }} → {{ win.end_date }}</div>
                                 <div v-if="win.duration_hint" class="win-duration">~{{ win.duration_hint }}d</div>
                             </div>
 
                             <!-- Option rows -->
                             <template v-for="opt in currentYearPlan.options" :key="'r-'+opt.id">
+                                <template v-if="opt.status !== 'excluded' || showExcludedOptions">
                                 <!-- Option row header -->
-                                <div class="grid-cell grid-option-header">
-                                    <div class="opt-title">
-                                        <span class="opt-name">{{ opt.name }}</span>
+                                <div class="grid-cell grid-option-header" :class="{ 'grid-row-excluded': opt.status === 'excluded' }">
+                                    <div v-if="isEditingOptionField(opt, 'name')" class="inline-edit">
+                                        <input v-model="optionFieldDraft" class="inline-edit-input"
+                                               @keyup.enter="saveOptionField" @keyup.esc="cancelEditOptionField">
+                                        <button class="btn btn-small btn-primary" @click="saveOptionField">Save</button>
+                                        <button class="btn btn-small" @click="cancelEditOptionField">Cancel</button>
+                                    </div>
+                                    <div v-else class="opt-title">
+                                        <span class="opt-name inline-editable" @click="startEditOptionField(opt, 'name')" title="Click to rename">{{ opt.name }}</span>
                                         <span class="status-badge" :class="opt.status">{{ opt.status }}</span>
                                         <span v-if="opt.created_by === 'ai'" class="status-badge ai-tag">AI</span>
                                     </div>
-                                    <p v-if="opt.summary" class="opt-summary" @click="editOptionSummary(opt)" title="Click to edit">{{ opt.summary }}</p>
-                                    <p v-else class="opt-summary opt-summary-empty" @click="editOptionSummary(opt)">+ summary</p>
+
+                                    <div v-if="isEditingOptionField(opt, 'summary')" class="inline-edit inline-edit-block">
+                                        <textarea v-model="optionFieldDraft" rows="2" class="inline-edit-input"
+                                                  @keyup.esc="cancelEditOptionField"
+                                                  placeholder="One-line summary of this option"></textarea>
+                                        <div class="inline-edit-actions">
+                                            <button class="btn btn-small btn-primary" @click="saveOptionField">Save</button>
+                                            <button class="btn btn-small" @click="cancelEditOptionField">Cancel</button>
+                                        </div>
+                                    </div>
+                                    <p v-else-if="opt.summary" class="opt-summary inline-editable"
+                                       @click="startEditOptionField(opt, 'summary')" title="Click to edit">{{ opt.summary }}</p>
+                                    <p v-else class="opt-summary opt-summary-empty inline-editable"
+                                       @click="startEditOptionField(opt, 'summary')">+ summary</p>
+
+                                    <p v-if="opt.status === 'excluded' && opt.excluded_reason" class="opt-excluded-reason">
+                                        <strong>Excluded:</strong> {{ opt.excluded_reason }}
+                                    </p>
                                     <div class="opt-actions">
-                                        <button class="btn btn-small" @click="renameOption(opt)" title="Rename">✎</button>
-                                        <button class="btn btn-small" @click="forkOption(opt)" title="Fork (clone this option)">Fork</button>
-                                        <button v-if="opt.status !== 'chosen'" class="btn btn-small btn-primary" @click="markOptionChosen(opt)" title="Mark as your pick">Pick</button>
-                                        <button v-else class="btn btn-small" @click="unpickOption(opt)" title="Revert to draft">Unpick</button>
-                                        <button class="btn btn-small" @click="archiveOption(opt)" :title="opt.status === 'archived' ? 'Unarchive' : 'Archive'">
-                                            {{ opt.status === 'archived' ? '↑' : '↓' }}
-                                        </button>
-                                        <button class="btn btn-small btn-danger" @click="deleteOption(opt)" title="Delete">×</button>
+                                        <button v-if="opt.status !== 'excluded'" class="btn btn-small btn-exclude-opt" @click="excludeOption(opt)" title="Exclude with a reason">⊘</button>
+                                        <button v-else class="btn btn-small" @click="unexcludeOption(opt)" title="Un-exclude">↩</button>
+                                        <button v-if="opt.status === 'excluded'" class="btn btn-small btn-danger" @click="deleteOption(opt)" title="Delete">×</button>
                                     </div>
                                 </div>
 
                                 <!-- One cell per window in this option -->
-                                <div v-for="(win, widx) in currentYearPlan.windows" :key="'c-'+opt.id+'-'+widx" class="grid-cell grid-idea-cell">
-                                    <!-- Stack of ideas in this cell -->
-                                    <template v-for="idea in ideasInCell(opt, widx)" :key="idea.id">
-                                        <div v-if="editingSlotId === idea.id" class="slot-form slot-form-inline">
-                                            <input v-model="editSlot.label" placeholder="Label (e.g. 'Safari')">
-                                            <textarea v-model="editSlot.theme" placeholder="Theme: what's this trip about?" rows="2" class="slot-theme-input"></textarea>
-                                            <label>Duration (d):
-                                                <input type="number" v-model.number="editSlot.duration_days" class="input-small" min="1" max="365">
+                                <div v-for="(win, widx) in currentYearPlan.windows" :key="'c-'+opt.id+'-'+widx" class="grid-cell grid-idea-cell" :class="{ 'grid-row-excluded': opt.status === 'excluded' }">
+                                    <!-- Stack of ACTIVE ideas (excluded are hidden behind a toggle) -->
+                                    <template v-for="idea in activeIdeasInCell(opt, widx)" :key="idea.id">
+                                        <div v-if="editingSlotId === idea.id" class="slot-form-inline">
+                                            <label class="form-field">
+                                                <span class="form-field-label">Label</span>
+                                                <input v-model="editSlot.label" placeholder="e.g. Safari">
                                             </label>
-                                            <input v-model="editSlot.climate_hint" placeholder="Climate hint">
-                                            <input v-model="editSlot.constraints_note" placeholder="Constraints">
+                                            <label class="form-field">
+                                                <span class="form-field-label">Theme</span>
+                                                <textarea v-model="editSlot.theme" placeholder="What's this trip about?" rows="3"></textarea>
+                                            </label>
+                                            <div class="form-field-row">
+                                                <label class="form-field form-field-compact">
+                                                    <span class="form-field-label">Duration (days)</span>
+                                                    <input type="number" v-model.number="editSlot.duration_days" min="1" max="365">
+                                                </label>
+                                                <label class="form-field form-field-compact">
+                                                    <span class="form-field-label">Climate</span>
+                                                    <input v-model="editSlot.climate_hint" placeholder="warm, ski, …">
+                                                </label>
+                                            </div>
+                                            <label class="form-field">
+                                                <span class="form-field-label">Notes for AI</span>
+                                                <input v-model="editSlot.constraints_note" placeholder="e.g. no long-haul flights, partner allergic to heat">
+                                            </label>
                                             <div class="slot-form-actions">
                                                 <button class="btn btn-primary btn-small" @click="saveSlotEdit">Save</button>
                                                 <button class="btn btn-small" @click="cancelSlotEdit">Cancel</button>
@@ -1447,28 +1523,43 @@
                                                 <span v-if="idea.duration_days">~{{ idea.duration_days }}d</span>
                                                 <span v-if="idea.climate_hint">· {{ idea.climate_hint }}</span>
                                             </div>
-                                            <div v-if="idea.trip" class="idea-trip">
-                                                <a href="#" @click.prevent="openSlotTrip(idea)">→ {{ idea.trip.name }}</a>
-                                            </div>
                                             <div class="idea-actions">
-                                                <button v-if="!idea.trip" class="btn btn-primary btn-small" @click="startTripForSlot(idea.id)" title="Start destination discovery">Find dest. →</button>
-                                                <button v-if="idea.trip" class="btn btn-small" @click="openSlotTrip(idea)">Open →</button>
+                                                <button v-if="!idea.trip" class="btn btn-primary btn-small" @click="startTripForSlot(idea.id)" title="Start destination discovery">Plan trip</button>
+                                                <button v-if="idea.trip" class="btn btn-primary btn-small" @click="openSlotTrip(idea)" :title="`Open ${idea.trip.name}`">Open trip →</button>
                                                 <button v-if="idea.status === 'proposed'" class="btn btn-small" @click="acceptSlot(idea.id)" title="Accept proposed idea">✓</button>
-                                                <button v-else-if="idea.status === 'open'" class="btn btn-small" @click="unreviewSlot(idea.id)" title="Send back to proposed">↩</button>
                                                 <button class="btn btn-small" @click="startEditSlot(idea)" title="Edit">✎</button>
-                                                <button class="btn btn-small btn-danger" @click="deleteSlot(idea.id)" title="Delete">×</button>
+                                                <button class="btn btn-small btn-exclude-idea" @click="excludeIdea(idea)" title="Exclude with reason">⊘</button>
+                                                <div class="idea-menu-wrap">
+                                                    <button class="btn btn-small" @click="toggleIdeaMenu(idea.id, $event)" title="More actions">⋯</button>
+                                                    <div v-if="openIdeaMenuId === idea.id" class="idea-menu" @click.stop>
+                                                        <button v-if="idea.status === 'open'" class="idea-menu-item" @click="ideaMenuUnreview(idea)">↺ Back to review</button>
+                                                        <span v-if="idea.status !== 'open'" class="idea-menu-empty">No extra actions</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </template>
 
                                     <!-- Inline add form when this is the cell being added to -->
-                                    <div v-if="addingSlotToOption === opt.id && addingInWindow === widx" class="slot-form slot-form-inline">
-                                        <input v-model="newSlot.label" placeholder="Label (e.g. 'Safari')">
-                                        <textarea v-model="newSlot.theme" placeholder="Theme: what's this trip about?" rows="2" class="slot-theme-input"></textarea>
-                                        <label>Duration (d):
-                                            <input type="number" v-model.number="newSlot.duration_days" class="input-small" min="1" max="365">
+                                    <div v-if="addingSlotToOption === opt.id && addingInWindow === widx" class="slot-form-inline">
+                                        <label class="form-field">
+                                            <span class="form-field-label">Label</span>
+                                            <input v-model="newSlot.label" placeholder="e.g. Safari">
                                         </label>
-                                        <input v-model="newSlot.climate_hint" placeholder="Climate hint">
+                                        <label class="form-field">
+                                            <span class="form-field-label">Theme</span>
+                                            <textarea v-model="newSlot.theme" placeholder="What's this trip about?" rows="3"></textarea>
+                                        </label>
+                                        <div class="form-field-row">
+                                            <label class="form-field form-field-compact">
+                                                <span class="form-field-label">Duration (days)</span>
+                                                <input type="number" v-model.number="newSlot.duration_days" min="1" max="365">
+                                            </label>
+                                            <label class="form-field form-field-compact">
+                                                <span class="form-field-label">Climate</span>
+                                                <input v-model="newSlot.climate_hint" placeholder="warm, ski, …">
+                                            </label>
+                                        </div>
                                         <div class="slot-form-actions">
                                             <button class="btn btn-primary btn-small" @click="saveNewSlot">Add</button>
                                             <button class="btn btn-small" @click="cancelAddSlot">Cancel</button>
@@ -1478,7 +1569,7 @@
                                     <!-- Footer: manual add + AI suggest, unless the inline form is open -->
                                     <div v-if="!(addingSlotToOption === opt.id && addingInWindow === widx)" class="idea-cell-footer">
                                         <button class="btn btn-add-idea" @click="startAddIdeaInCell(opt.id, widx)">
-                                            {{ ideasInCell(opt, widx).length ? '+ Add another' : '+ Add trip idea' }}
+                                            {{ activeIdeasInCell(opt, widx).length ? '+ Add another' : '+ Add trip idea' }}
                                         </button>
                                         <button class="btn btn-add-idea btn-suggest-ai"
                                             @click="askAISuggestForCell(opt, widx)"
@@ -1487,12 +1578,40 @@
                                             ✨ Suggest more
                                         </button>
                                     </div>
+
+                                    <!-- Excluded ideas, hidden behind a toggle per cell -->
+                                    <div v-if="excludedIdeasInCell(opt, widx).length" class="excluded-toggle">
+                                        <button class="btn-link-small" @click="toggleShowExcludedInCell(opt.id, widx)">
+                                            {{ isExcludedShownInCell(opt.id, widx) ? 'Hide' : 'Show' }}
+                                            {{ excludedIdeasInCell(opt, widx).length }} excluded
+                                            {{ isExcludedShownInCell(opt.id, widx) ? '▴' : '▾' }}
+                                        </button>
+                                    </div>
+                                    <template v-if="isExcludedShownInCell(opt.id, widx)"
+                                              v-for="idea in excludedIdeasInCell(opt, widx)" :key="'x-'+idea.id">
+                                        <div class="idea-card idea-excluded">
+                                            <div class="idea-header">
+                                                <strong>{{ idea.label || '(unnamed)' }}</strong>
+                                                <span class="status-badge excluded">excluded</span>
+                                            </div>
+                                            <p v-if="idea.theme" class="idea-theme">{{ idea.theme }}</p>
+                                            <p class="idea-excluded-reason"><strong>Why:</strong> {{ idea.excluded_reason }}</p>
+                                            <div class="idea-actions">
+                                                <button class="btn btn-small" @click="unexcludeIdea(idea)" title="Un-exclude">↩ Un-exclude</button>
+                                                <button class="btn btn-small btn-danger" @click="deleteSlot(idea.id)" title="Delete">×</button>
+                                            </div>
+                                        </div>
+                                    </template>
                                 </div>
+                                </template>
                             </template>
                         </div>
                     </div>
                 </section>
             </div>
+
+            <!-- Backdrop that closes any open per-idea overflow menu -->
+            <div v-if="openIdeaMenuId" class="menu-backdrop" @click="closeIdeaMenu"></div>
 
             <!-- Year chatbot sidebar -->
             <div class="chat-sidebar">

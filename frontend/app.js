@@ -1424,6 +1424,21 @@ createApp({
             await reloadYearPlan();
         }
 
+        async function excludeOption(opt) {
+            const reason = prompt(`Why exclude "${opt.name}"? (shown to the AI so it learns.)`);
+            if (!reason) return;
+            await api(`/api/year-options/${opt.id}/exclude`, {
+                method: 'POST',
+                body: JSON.stringify({ reason }),
+            });
+            await reloadYearPlan();
+        }
+
+        async function unexcludeOption(opt) {
+            await api(`/api/year-options/${opt.id}/unexclude`, { method: 'POST' });
+            await reloadYearPlan();
+        }
+
         async function archiveOption(opt) {
             const next = opt.status === 'archived' ? 'draft' : 'archived';
             await api(`/api/year-options/${opt.id}`, {
@@ -1532,6 +1547,119 @@ createApp({
         async function unreviewSlot(slotId) {
             await api(`/api/slots/${slotId}/unreview`, { method: 'POST' });
             await reloadYearPlan();
+        }
+
+        async function excludeIdea(idea) {
+            const reason = prompt(`Why exclude "${idea.label || 'this idea'}"? (shown to the AI so it learns.)`);
+            if (!reason) return;
+            await api(`/api/slots/${idea.id}/exclude`, {
+                method: 'POST',
+                body: JSON.stringify({ reason }),
+            });
+            await reloadYearPlan();
+        }
+
+        async function unexcludeIdea(idea) {
+            await api(`/api/slots/${idea.id}/unexclude`, { method: 'POST' });
+            await reloadYearPlan();
+        }
+
+        // --- Per-cell "show excluded" toggle state ---
+        const expandedExcludedCells = ref(new Set());
+        function cellKey(optId, widx) { return `${optId}:${widx}`; }
+        function isExcludedShownInCell(optId, widx) {
+            return expandedExcludedCells.value.has(cellKey(optId, widx));
+        }
+        function toggleShowExcludedInCell(optId, widx) {
+            const s = new Set(expandedExcludedCells.value);
+            const k = cellKey(optId, widx);
+            if (s.has(k)) s.delete(k); else s.add(k);
+            expandedExcludedCells.value = s;
+        }
+        function activeIdeasInCell(opt, widx) {
+            return ideasInCell(opt, widx).filter(s => s.status !== 'excluded');
+        }
+        function excludedIdeasInCell(opt, widx) {
+            return ideasInCell(opt, widx).filter(s => s.status === 'excluded');
+        }
+
+        // --- Option-level show-excluded toggle ---
+        const showExcludedOptions = ref(false);
+        function toggleShowExcludedOptions() {
+            showExcludedOptions.value = !showExcludedOptions.value;
+        }
+
+        // --- Inline edit for YearPlan fields ---
+        const editingYearPlanField = ref(null); // 'name' | 'intent' | null
+        const yearPlanFieldDraft = ref('');
+        function startEditYearPlanField(field) {
+            if (!currentYearPlan.value) return;
+            editingYearPlanField.value = field;
+            yearPlanFieldDraft.value = field === 'name'
+                ? (currentYearPlan.value.name || '')
+                : (currentYearPlan.value.intent || '');
+        }
+        function cancelEditYearPlanField() {
+            editingYearPlanField.value = null;
+            yearPlanFieldDraft.value = '';
+        }
+        async function saveYearPlanField() {
+            const field = editingYearPlanField.value;
+            if (!field || !currentYearPlan.value) return;
+            const value = yearPlanFieldDraft.value.trim();
+            if (field === 'name' && !value) { cancelEditYearPlanField(); return; }
+            const patch = field === 'name' ? { name: value } : { intent: value };
+            await api(`/api/year-plans/${currentYearPlan.value.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(patch),
+            });
+            cancelEditYearPlanField();
+            await reloadYearPlan();
+        }
+
+        // --- Inline edit for YearOption fields ---
+        const editingOptionField = ref(null); // { id, field } | null
+        const optionFieldDraft = ref('');
+        function startEditOptionField(opt, field) {
+            editingOptionField.value = { id: opt.id, field };
+            optionFieldDraft.value = field === 'name'
+                ? (opt.name || '')
+                : (opt.summary || '');
+        }
+        function cancelEditOptionField() {
+            editingOptionField.value = null;
+            optionFieldDraft.value = '';
+        }
+        async function saveOptionField() {
+            const sel = editingOptionField.value;
+            if (!sel) return;
+            const value = optionFieldDraft.value.trim();
+            if (sel.field === 'name' && !value) { cancelEditOptionField(); return; }
+            const patch = sel.field === 'name' ? { name: value } : { summary: value };
+            await api(`/api/year-options/${sel.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(patch),
+            });
+            cancelEditOptionField();
+            await reloadYearPlan();
+        }
+        function isEditingOptionField(opt, field) {
+            const sel = editingOptionField.value;
+            return sel && sel.id === opt.id && sel.field === field;
+        }
+
+        // --- Per-idea overflow menu (•••) ---
+        const openIdeaMenuId = ref(null);
+        function toggleIdeaMenu(ideaId, event) {
+            if (event) event.stopPropagation();
+            openIdeaMenuId.value = openIdeaMenuId.value === ideaId ? null : ideaId;
+        }
+        function closeIdeaMenu() {
+            openIdeaMenuId.value = null;
+        }
+        async function ideaMenuUnreview(idea) {
+            closeIdeaMenu();
+            await unreviewSlot(idea.id);
         }
 
         async function startTripForSlot(slotId) {
@@ -1732,10 +1860,20 @@ createApp({
             editYearIntent, toggleArchiveYearPlan, deleteYearPlan,
             startEditWindows, cancelEditWindows, addWindowRow, removeWindowRow, saveWindows, describeWindow,
             createOption, renameOption, editOptionSummary, forkOption,
-            markOptionChosen, unpickOption, archiveOption, deleteOption,
-            ideasInCell, startAddIdeaInCell, cancelAddSlot, saveNewSlot,
+            markOptionChosen, unpickOption, excludeOption, unexcludeOption,
+            archiveOption, deleteOption,
+            ideasInCell, activeIdeasInCell, excludedIdeasInCell,
+            startAddIdeaInCell, cancelAddSlot, saveNewSlot,
             startEditSlot, saveSlotEdit, cancelSlotEdit, deleteSlot,
-            acceptSlot, unreviewSlot, startTripForSlot, openSlotTrip, unlinkSlotTrip, linkExistingTrip,
+            acceptSlot, unreviewSlot, excludeIdea, unexcludeIdea,
+            startTripForSlot, openSlotTrip, unlinkSlotTrip, linkExistingTrip,
+            isExcludedShownInCell, toggleShowExcludedInCell,
+            showExcludedOptions, toggleShowExcludedOptions,
+            openIdeaMenuId, toggleIdeaMenu, closeIdeaMenu, ideaMenuUnreview,
+            editingYearPlanField, yearPlanFieldDraft,
+            startEditYearPlanField, cancelEditYearPlanField, saveYearPlanField,
+            editingOptionField, optionFieldDraft,
+            startEditOptionField, cancelEditOptionField, saveOptionField, isEditingOptionField,
             askAIForOptions, askAISuggestForCell,
             switchYearConversation, newYearConversation, sendYearMessage,
             formatSlotSpan,
