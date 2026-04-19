@@ -27,6 +27,18 @@ If you find documentation that is already wrong (you didn't cause it but you spo
 
 `CLAUDE.md` itself is a living document — when you learn something non-obvious about this codebase that future Claude sessions would benefit from, add it under "Recent Learnings" or the appropriate section.
 
+## Authentication
+
+Every request (API + static frontend) is gated by HTTP Basic Auth enforced in a FastAPI middleware in `backend/app/main.py`. Credentials come from env vars:
+
+- `AUTH_USERNAME` + `AUTH_PASSWORD` — single user, simplest.
+- `AUTH_USERS=felix:hunter2,guest:welcome` — multi-user. Both forms can coexist and merge.
+- `AUTH_REALM` — optional prompt label (default "Vacation Planner").
+
+When none of the above is set, the middleware is a no-op (local-dev convenience). In production (Railway) the env vars MUST be set — the public URL gets port-scanned. Password comparison uses `secrets.compare_digest` for timing safety. Browsers cache the Basic credentials for the tab's lifetime, so there's no login page / session state.
+
+To add session-based auth or a login page later, replace the middleware without touching routes.
+
 ## CRITICAL: Data Safety
 
 **NEVER delete `trips.db` or any user data without explicit user confirmation.**

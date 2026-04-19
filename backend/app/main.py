@@ -6,13 +6,16 @@ logic and routes live in the per-domain packages:
     - app/golf/routes.py  → /api/golf-library/*
 """
 
+import base64
 import logging
+import os
+import secrets
 import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .database import init_golf_db, init_trips_db
@@ -32,6 +35,75 @@ if not _error_logger.handlers:
     _error_logger.propagate = False
 
 app = FastAPI(title="Trip Planner Chatbot")
+
+
+# ---------------------------------------------------------------------------
+# HTTP Basic Auth — gates every request (API + static frontend)
+# ---------------------------------------------------------------------------
+#
+# Credentials from env:
+#   AUTH_USERS="felix:hunter2,guest:welcome"    # multi-user, comma-separated
+#   or
+#   AUTH_USERNAME=felix                          # single user
+#   AUTH_PASSWORD=hunter2
+#
+# If neither is set, the middleware is a no-op (local dev convenience).
+# Timing-safe comparison via `secrets.compare_digest`. Browsers cache Basic
+# credentials until tab/window close, so there's no login page to build.
+
+
+def _load_users() -> dict[str, str]:
+    users: dict[str, str] = {}
+    users_csv = os.environ.get("AUTH_USERS", "").strip()
+    if users_csv:
+        for pair in users_csv.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            u, p = pair.split(":", 1)
+            u, p = u.strip(), p.strip()
+            if u and p:
+                users[u] = p
+    u = os.environ.get("AUTH_USERNAME", "").strip()
+    p = os.environ.get("AUTH_PASSWORD", "").strip()
+    if u and p:
+        users[u] = p
+    return users
+
+
+_AUTH_USERS = _load_users()
+_AUTH_REALM = os.environ.get("AUTH_REALM", "Vacation Planner")
+
+
+def _check_basic_auth(header: str) -> bool:
+    if not header.lower().startswith("basic "):
+        return False
+    try:
+        decoded = base64.b64decode(header.split(" ", 1)[1]).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return False
+    user, _, password = decoded.partition(":")
+    expected = _AUTH_USERS.get(user)
+    if expected is None:
+        # Still compare to avoid user-enumeration via timing.
+        secrets.compare_digest(password, password)
+        return False
+    return secrets.compare_digest(password, expected)
+
+
+@app.middleware("http")
+async def require_basic_auth(request: Request, call_next):
+    if not _AUTH_USERS:
+        return await call_next(request)
+    header = request.headers.get("Authorization", "")
+    if header and _check_basic_auth(header):
+        return await call_next(request)
+    return Response(
+        status_code=401,
+        headers={"WWW-Authenticate": f'Basic realm="{_AUTH_REALM}"'},
+        content=b"Authentication required",
+        media_type="text/plain",
+    )
 
 
 @app.exception_handler(Exception)
