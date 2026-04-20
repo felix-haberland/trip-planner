@@ -932,7 +932,7 @@ header {
     }
     .year-grid-right,
     .year-grid-window-row-inner {
-        grid-template-columns: repeat(var(--window-count, 1), minmax(200px, 260px));
+        grid-template-columns: repeat(var(--window-count, 1), minmax(170px, 200px));
         gap: 4px;
     }
     .year-grid-left-options { gap: 4px; }
