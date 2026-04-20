@@ -1401,11 +1401,14 @@ header {
     justify-content: center;
 }
 /* The row wrapper owns the sticky — its parent is .year-grid-wrap which
-   has no overflow, so sticky correctly attaches to `.year-detail`. */
+   has no overflow, so sticky correctly attaches to `.year-detail`. The
+   solid background matches the page so the 6px column-gaps inside the
+   row don't become transparent strips that leak scrolling idea cells. */
 .year-grid-window-row {
     position: sticky;
     top: 0;
     z-index: 3;
+    background: #f5f5f5;
 }
 .grid-window-header strong { font-size: 0.95rem; }
 .grid-window-header .win-dates { font-size: 0.78rem; color: #6b7280; }
