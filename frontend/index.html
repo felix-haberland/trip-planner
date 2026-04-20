@@ -1566,7 +1566,15 @@
                                         <strong>Excluded:</strong> {{ opt.excluded_reason }}
                                     </p>
                                     <div class="opt-actions">
-                                        <button v-if="opt.status !== 'excluded'" class="btn btn-small btn-exclude-opt" @click="excludeOption(opt)" title="Exclude with a reason">⊘</button>
+                                        <!-- Active option: single ⋯ button opens exclude/delete menu. -->
+                                        <div v-if="opt.status !== 'excluded'" class="idea-menu-wrap">
+                                            <button class="btn btn-small" @click.stop="openOptMenuId = (openOptMenuId === opt.id ? null : opt.id)" title="More actions">⋯</button>
+                                            <div v-if="openOptMenuId === opt.id" class="idea-menu" @click.stop>
+                                                <button class="idea-menu-item" @click="openOptMenuId = null; excludeOption(opt)">⊘ Exclude with reason</button>
+                                                <button class="idea-menu-item idea-menu-danger" @click="openOptMenuId = null; deleteOption(opt)">× Delete</button>
+                                            </div>
+                                        </div>
+                                        <!-- Excluded option: keep explicit un-exclude + delete buttons. -->
                                         <button v-else class="btn btn-small" @click="unexcludeOption(opt)" title="Un-exclude">↩</button>
                                         <button v-if="opt.status === 'excluded'" class="btn btn-small btn-danger" @click="deleteOption(opt)" title="Delete">×</button>
                                     </div>
@@ -1747,7 +1755,13 @@
                                 <strong>Excluded:</strong> {{ stackOption.excluded_reason }}
                             </p>
                             <div class="opt-actions">
-                                <button v-if="stackOption.status !== 'excluded'" class="btn btn-small btn-exclude-opt" @click="excludeOption(stackOption)" title="Exclude with a reason">⊘ Exclude</button>
+                                <div v-if="stackOption.status !== 'excluded'" class="idea-menu-wrap">
+                                    <button class="btn btn-small" @click.stop="openOptMenuId = (openOptMenuId === stackOption.id ? null : stackOption.id)" title="More actions">⋯</button>
+                                    <div v-if="openOptMenuId === stackOption.id" class="idea-menu" @click.stop>
+                                        <button class="idea-menu-item" @click="openOptMenuId = null; excludeOption(stackOption)">⊘ Exclude with reason</button>
+                                        <button class="idea-menu-item idea-menu-danger" @click="openOptMenuId = null; deleteOption(stackOption)">× Delete</button>
+                                    </div>
+                                </div>
                                 <button v-else class="btn btn-small" @click="unexcludeOption(stackOption)" title="Un-exclude">↩ Un-exclude</button>
                                 <button v-if="stackOption.status === 'excluded'" class="btn btn-small btn-danger" @click="deleteOption(stackOption)" title="Delete">× Delete</button>
                             </div>
@@ -1880,6 +1894,7 @@
             <!-- Backdrop that closes any open per-idea overflow menu -->
             <div v-if="openIdeaMenuId" class="menu-backdrop" @click="closeIdeaMenu"></div>
             <div v-if="addOptionMenuOpen" class="menu-backdrop" @click="addOptionMenuOpen = false"></div>
+            <div v-if="openOptMenuId" class="menu-backdrop" @click="openOptMenuId = null"></div>
 
             <!-- Year-level dialog (exclude, Ask AI, Suggest more, Link trip) -->
             <div v-if="dialogKind" class="dialog-overlay" @click.self="closeDialog">

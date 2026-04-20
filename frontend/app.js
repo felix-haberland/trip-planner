@@ -1844,6 +1844,8 @@ async function deleteOption(opt) {
         const yearEditMode = ref(false);
         // Popover for the "+ Add Option" button — choose AI-generated or blank.
         const addOptionMenuOpen = ref(false);
+        // Which option's ⋯ menu (exclude / delete) is open; null = none.
+        const openOptMenuId = ref(null);
 
         // Row count for the Compare grid (1 header row + 1 per visible option).
         // Needed so `grid-template-rows` on the outer grid has explicit rows
@@ -2193,7 +2195,7 @@ async function deleteOption(opt) {
             toggleOptionFocus, clearOptionFocus, shouldShowOption, ideaDisplayName,
             gridMode, stackOptionId, stackOption, stackableOptions, visibleGridRowCount,
             yearGridScrollEl, yearGridWindowInnerEl, syncWindowRowScroll,
-            yearEditMode, addOptionMenuOpen,
+            yearEditMode, addOptionMenuOpen, openOptMenuId,
             ideasInCell, activeIdeasInCell, excludedIdeasInCell,
             startAddIdeaInCell, cancelAddSlot, saveNewSlot,
             startEditSlot, saveSlotEdit, cancelSlotEdit, deleteSlot,

@@ -1530,6 +1530,8 @@ header {
     font-size: 0.85rem; color: #374151; cursor: pointer;
 }
 .idea-menu-item:hover { background: #f3f4f6; color: #111827; }
+.idea-menu-item.idea-menu-danger { color: #b91c1c; }
+.idea-menu-item.idea-menu-danger:hover { background: #fee2e2; color: #7f1d1d; }
 .idea-menu-empty {
     display: block; padding: 6px 10px; font-size: 0.82rem; color: #9ca3af;
     font-style: italic;
