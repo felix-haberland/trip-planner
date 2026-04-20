@@ -1,4 +1,4 @@
-const { createApp, ref, computed, nextTick, onMounted } = Vue;
+const { createApp, ref, computed, nextTick, onMounted, watch } = Vue;
 
 const API = '';
 
@@ -66,7 +66,7 @@ const scrollIndicator = {
 
 createApp({
     setup() {
-        const view = ref('list');
+        const view = ref('home');
         const trips = ref([]);
         const currentTrip = ref(null);
         const messages = ref([]);
@@ -226,10 +226,17 @@ createApp({
         }
 
         function goHome() {
-            view.value = 'list';
+            view.value = 'home';
             currentTrip.value = null;
             messages.value = [];
             window.location.hash = '';
+        }
+
+        function goTrips() {
+            view.value = 'list';
+            currentTrip.value = null;
+            messages.value = [];
+            window.location.hash = '#/trips';
             loadTrips();
         }
 
@@ -237,6 +244,7 @@ createApp({
         // tab highlight in the header nav.
         const currentSection = computed(() => {
             const v = view.value;
+            if (v === 'home') return 'home';
             if (v === 'year' || v === 'year-detail') return 'year';
             if (v && v.startsWith('library')) return 'golf';
             return 'trips';
@@ -755,6 +763,14 @@ createApp({
 
         async function restoreFromHash() {
             const hash = window.location.hash;
+            if (!hash || hash === '#' || hash === '#/') {
+                view.value = 'home';
+                return;
+            }
+            if (hash === '#/trips') {
+                goTrips();
+                return;
+            }
             // Legacy trip route
             const tripMatch = hash.match(/^#trip\/(\d+)$/);
             if (tripMatch) {
@@ -1270,6 +1286,15 @@ createApp({
                 ? !window.matchMedia('(max-width: 1024px)').matches
                 : true
         );
+        // When the user toggles the chatbot back on, jump to the latest
+        // message so they don't have to scroll a long history.
+        watch(showYearChat, async (visible) => {
+            if (!visible) return;
+            await nextTick();
+            if (yearChatEl.value) {
+                yearChatEl.value.scrollTop = yearChatEl.value.scrollHeight;
+            }
+        });
 
         // Windows editor (shared across options)
         const editingWindows = ref(false);
@@ -1354,6 +1379,12 @@ createApp({
                 yearMessages.value = [];
                 await reloadYearPlan();
             }
+            // Pin the chat to the latest message when opening.
+            nextTick(() => {
+                if (yearChatEl.value) {
+                    yearChatEl.value.scrollTop = yearChatEl.value.scrollHeight;
+                }
+            });
         }
 
         async function reloadYearPlan() {
@@ -1991,7 +2022,7 @@ async function deleteOption(opt) {
             editingMessageId, editingContent, zoomedMessage, zoomQuestions, chatExpanded, activeConvId,
             activityTagVocab, activityWeightsTotal, addActivityRow,
             lastMessageHasQuestions, zoomLastAssistant,
-            goHome, createTrip, openTrip, sendMessage, doSend,
+            goHome, goTrips, createTrip, openTrip, sendMessage, doSend,
             currentSection,
             quickAction, promptChangeFocus,
             activeConversations, archivedConversations, showArchivedConvs,

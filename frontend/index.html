@@ -12,14 +12,32 @@
     <div id="app">
         <header>
             <div class="header-top">
-                <h1 class="brand">Trip Planner</h1>
+                <h1 class="brand" @click="goHome" style="cursor: pointer">Trip Planner</h1>
                 <nav class="header-nav">
-                    <button class="nav-tab" :class="{ active: currentSection === 'trips' }" @click="goHome">Trips</button>
+                    <button class="nav-tab" :class="{ active: currentSection === 'trips' }" @click="goTrips">Trips</button>
                     <button class="nav-tab" :class="{ active: currentSection === 'year' }" @click="openYear">Year</button>
                     <button class="nav-tab" :class="{ active: currentSection === 'golf' }" @click="openLibrary">Golf Library</button>
                 </nav>
             </div>
         </header>
+
+        <!-- HOME VIEW -->
+        <div v-if="view === 'home'" class="container home-view">
+            <div class="home-tiles">
+                <button class="home-tile" @click="goTrips">
+                    <div class="home-tile-title">Trips</div>
+                    <div class="home-tile-desc">Plan individual trips with the chatbot — shortlist destinations, explore options, decide.</div>
+                </button>
+                <button class="home-tile" @click="openYear">
+                    <div class="home-tile-title">Year Planner</div>
+                    <div class="home-tile-desc">Arrange the year — compare whole-year options across your vacation windows.</div>
+                </button>
+                <button class="home-tile" @click="openLibrary">
+                    <div class="home-tile-title">Golf Library</div>
+                    <div class="home-tile-desc">Curated resorts and courses you've collected. Browse, filter, add more.</div>
+                </button>
+            </div>
+        </div>
 
         <!-- TRIP LIST VIEW -->
         <div v-if="view === 'list'" class="container">
@@ -92,7 +110,7 @@
             <!-- MAIN AREA: Tables + Actions -->
             <div class="planning-main">
                 <div class="planning-toolbar">
-                    <button class="btn btn-small" @click="goHome">&larr; Trips</button>
+                    <button class="btn btn-small" @click="goTrips">&larr; Trips</button>
                     <div class="action-buttons">
                         <button class="btn btn-action" @click="quickAction('Suggest more destinations for this trip')"
                             :disabled="sending">+ More Suggestions</button>
@@ -360,7 +378,7 @@
             <div class="trip-list-header">
                 <h2>⛳ Golf Library</h2>
                 <div>
-                    <button class="btn btn-small" @click="goHome">&larr; Trips</button>
+                    <button class="btn btn-small" @click="goTrips">&larr; Trips</button>
                     <button class="btn btn-primary" @click="openLibraryAdd">+ Add Resort or Course</button>
                 </div>
             </div>
@@ -1352,7 +1370,7 @@
                     </div>
                     <div class="year-detail-actions">
                         <button class="btn btn-small" @click="showYearChat = !showYearChat">
-                            {{ showYearChat ? 'Hide assistant' : 'Show assistant' }}
+                            {{ showYearChat ? 'Hide Chatbot' : 'Show Chatbot' }}
                         </button>
                         <button class="btn btn-small btn-danger" @click="deleteYearPlan(currentYearPlan.id, currentYearPlan.name)">Delete</button>
                     </div>
