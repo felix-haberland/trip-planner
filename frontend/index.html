@@ -1372,12 +1372,21 @@
                         <button class="btn btn-small" @click="showYearChat = !showYearChat">
                             {{ showYearChat ? 'Hide Chatbot' : 'Show Chatbot' }}
                         </button>
-                        <button class="btn btn-small btn-danger" @click="deleteYearPlan(currentYearPlan.id, currentYearPlan.name)">Delete</button>
+                        <button class="btn btn-small" :class="{ 'btn-primary': yearEditMode }"
+                                @click="yearEditMode = !yearEditMode">
+                            {{ yearEditMode ? 'Done' : 'Edit' }}
+                        </button>
+                        <button v-if="yearEditMode" class="btn btn-small btn-danger"
+                                @click="deleteYearPlan(currentYearPlan.id, currentYearPlan.name)">
+                            Delete
+                        </button>
                     </div>
                 </div>
 
-                <!-- Windows editor (shared across options) -->
-                <section class="year-section">
+                <!-- Windows editor (shared across options). Hidden unless edit
+                     mode is active — editing windows is infrequent, cleaning
+                     up the default view. -->
+                <section v-if="yearEditMode" class="year-section">
                     <div class="year-section-header">
                         <h3>Vacation Windows</h3>
                         <button v-if="!editingWindows" class="btn btn-small" @click="startEditWindows">
@@ -1450,8 +1459,26 @@
                                 {{ showExcludedOptions ? 'Hide' : 'Show' }} excluded
                                 ({{ (currentYearPlan.options || []).filter(o => o.status === 'excluded').length }})
                             </button>
-                            <button class="btn btn-small btn-primary" @click="askAIForOptions" :disabled="yearSending || !(currentYearPlan.windows || []).length">Ask AI for options</button>
-                            <button class="btn btn-small" @click="createOption">+ Blank option</button>
+                            <!-- Add option: single button that toggles a popover
+                                 with the two creation modes (AI-generated or
+                                 empty). Click-outside closes via menu-backdrop. -->
+                            <div class="add-option-wrap">
+                                <button class="btn btn-small btn-primary"
+                                        @click="addOptionMenuOpen = !addOptionMenuOpen">
+                                    + Add Option
+                                </button>
+                                <div v-if="addOptionMenuOpen" class="add-option-menu" @click.stop>
+                                    <button class="add-option-item"
+                                            :disabled="yearSending || !(currentYearPlan.windows || []).length"
+                                            @click="addOptionMenuOpen = false; askAIForOptions()">
+                                        ✨ Ask AI for options
+                                    </button>
+                                    <button class="add-option-item"
+                                            @click="addOptionMenuOpen = false; createOption()">
+                                        + Blank option
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <!-- Unified option selector: "All" switches to the
@@ -1850,6 +1877,7 @@
 
             <!-- Backdrop that closes any open per-idea overflow menu -->
             <div v-if="openIdeaMenuId" class="menu-backdrop" @click="closeIdeaMenu"></div>
+            <div v-if="addOptionMenuOpen" class="menu-backdrop" @click="addOptionMenuOpen = false"></div>
 
             <!-- Year-level dialog (exclude, Ask AI, Suggest more, Link trip) -->
             <div v-if="dialogKind" class="dialog-overlay" @click.self="closeDialog">

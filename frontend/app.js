@@ -1838,6 +1838,13 @@ async function deleteOption(opt) {
             return opt.status !== 'excluded' || showExcludedOptions.value;
         }
 
+        // Edit mode gates destructive / infrequent UI (Delete button, the
+        // Vacation Windows editor) so the default year-detail view stays
+        // focused on the options grid. Off by default.
+        const yearEditMode = ref(false);
+        // Popover for the "+ Add Option" button — choose AI-generated or blank.
+        const addOptionMenuOpen = ref(false);
+
         // Row count for the Compare grid (1 header row + 1 per visible option).
         // Needed so `grid-template-rows` on the outer grid has explicit rows
         // that the left/right subgrids can inherit.
@@ -2186,6 +2193,7 @@ async function deleteOption(opt) {
             toggleOptionFocus, clearOptionFocus, shouldShowOption, ideaDisplayName,
             gridMode, stackOptionId, stackOption, stackableOptions, visibleGridRowCount,
             yearGridScrollEl, yearGridWindowInnerEl, syncWindowRowScroll,
+            yearEditMode, addOptionMenuOpen,
             ideasInCell, activeIdeasInCell, excludedIdeasInCell,
             startAddIdeaInCell, cancelAddSlot, saveNewSlot,
             startEditSlot, saveSlotEdit, cancelSlotEdit, deleteSlot,
