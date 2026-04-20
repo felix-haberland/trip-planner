@@ -1445,11 +1445,6 @@
                     <div class="year-section-header">
                         <h3>Year options</h3>
                         <div class="year-section-actions">
-                            <button v-if="hasFocusedOptions()" class="btn btn-small btn-focus-clear"
-                                    @click="clearOptionFocus"
-                                    title="Show all options again">
-                                Focused on {{ focusedOptionIds.size }} — show all
-                            </button>
                             <button v-if="(currentYearPlan.options || []).some(o => o.status === 'excluded')"
                                     class="btn btn-small" @click="toggleShowExcludedOptions">
                                 {{ showExcludedOptions ? 'Hide' : 'Show' }} excluded
@@ -1542,12 +1537,6 @@
                                         <strong>Excluded:</strong> {{ opt.excluded_reason }}
                                     </p>
                                     <div class="opt-actions">
-                                        <button class="btn btn-small btn-focus"
-                                                :class="{ 'btn-focus-active': isOptionFocused(opt.id) }"
-                                                @click="toggleOptionFocus(opt.id)"
-                                                :title="isOptionFocused(opt.id) ? 'Unfocus' : 'Focus (hide other options)'">
-                                            {{ isOptionFocused(opt.id) ? '★' : '☆' }}
-                                        </button>
                                         <button v-if="opt.status !== 'excluded'" class="btn btn-small btn-exclude-opt" @click="excludeOption(opt)" title="Exclude with a reason">⊘</button>
                                         <button v-else class="btn btn-small" @click="unexcludeOption(opt)" title="Un-exclude">↩</button>
                                         <button v-if="opt.status === 'excluded'" class="btn btn-small btn-danger" @click="deleteOption(opt)" title="Delete">×</button>

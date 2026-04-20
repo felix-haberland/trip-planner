@@ -917,6 +917,19 @@ header {
         column-gap: 4px;
         row-gap: 0;
     }
+    /* Right-edge fade indicating the grid scrolls horizontally. Always
+       visible on phones where there's no obvious scrollbar. */
+    .year-grid-wrap::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 24px;
+        background: linear-gradient(to left, rgba(0, 0, 0, 0.18), transparent);
+        pointer-events: none;
+        z-index: 5;
+    }
     .year-grid-right,
     .year-grid-window-row-inner {
         grid-template-columns: repeat(var(--window-count, 1), minmax(200px, 260px));
@@ -1310,6 +1323,7 @@ header {
     display: grid;
     grid-template-columns: 190px 1fr;
     grid-template-rows: repeat(var(--row-count, 1), auto);
+    position: relative;
     /* row-gap 0 so the sticky window-header row sits flush on the idea
        cells below it — otherwise the `.year-detail` background text
        bleeds through that 6px strip as content scrolls under the sticky
