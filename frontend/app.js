@@ -1296,14 +1296,10 @@ createApp({
             }
         });
 
-        // Grid view mode — `grid` is the desktop 2D table, `stack` is the
-        // mobile-friendly single-option vertical layout. Default mirrors the
-        // viewport width so a phone lands in `stack` automatically.
-        const gridMode = ref(
-            typeof window !== 'undefined' && window.matchMedia
-                ? (window.matchMedia('(max-width: 700px)').matches ? 'stack' : 'grid')
-                : 'grid'
-        );
+        // Grid view mode — `grid` is the compare-all 2D table, `stack` is a
+        // single option shown vertically. Everyone starts in `stack` focused
+        // on the first option; clicking the "All" tab jumps to grid.
+        const gridMode = ref('stack');
         // Which option is shown in stack mode. Initialized to the first
         // non-excluded option whenever the year plan loads or changes.
         const stackOptionId = ref(null);

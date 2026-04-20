@@ -1459,15 +1459,21 @@
                             <button class="btn btn-small" @click="createOption">+ Blank option</button>
                         </div>
                     </div>
-                    <!-- Grid vs Stack view toggle. Stack mode (one option at a
-                         time, windows listed vertically) is much more usable on
-                         a phone; grid is the desktop comparison view. -->
-                    <div class="year-view-mode" v-if="(currentYearPlan.options || []).length">
-                        <button class="mode-tab" :class="{ active: gridMode === 'grid' }" @click="gridMode = 'grid'">
-                            <span class="mode-tab-icon">▦</span> Compare
-                        </button>
-                        <button class="mode-tab" :class="{ active: gridMode === 'stack' }" @click="gridMode = 'stack'">
-                            <span class="mode-tab-icon">☰</span> Focus
+                    <!-- Unified option selector: "All" switches to the
+                         compare grid; clicking any single option switches to
+                         focus mode on that option. -->
+                    <div class="year-view-tabs" v-if="stackableOptions.length">
+                        <button class="view-tab" :class="{ active: gridMode === 'grid' }"
+                                @click="gridMode = 'grid'">All</button>
+                        <button v-for="opt in stackableOptions" :key="'vt-'+opt.id"
+                                class="view-tab"
+                                :class="{
+                                    active: gridMode === 'stack' && stackOption && opt.id === stackOption.id,
+                                    'view-tab-excluded': opt.status === 'excluded',
+                                }"
+                                @click="gridMode = 'stack'; stackOptionId = opt.id">
+                            {{ opt.name }}
+                            <span v-if="opt.status === 'excluded'" class="status-badge excluded">excluded</span>
                         </button>
                     </div>
 
@@ -1481,7 +1487,7 @@
                     <div v-else-if="gridMode === 'grid'" class="year-grid-scroll">
                         <div class="year-grid" :style="`--window-count: ${currentYearPlan.windows.length}`">
                             <!-- Top-left corner -->
-                            <div class="grid-cell grid-corner">options × windows</div>
+                            <div class="grid-cell grid-corner">Options ↓ / Windows →</div>
 
                             <!-- Window column headers -->
                             <div v-for="(win, widx) in currentYearPlan.windows" :key="'wh-'+widx" class="grid-cell grid-window-header">
@@ -1670,16 +1676,6 @@
                          grid — kept duplicated on purpose because the outer
                          structure diverges meaningfully. -->
                     <div v-else-if="gridMode === 'stack'" class="stack-view">
-                        <!-- Horizontal scroll strip of options. -->
-                        <div class="stack-option-tabs" v-if="stackableOptions.length > 1">
-                            <button v-for="opt in stackableOptions" :key="'st-'+opt.id"
-                                    class="stack-tab" :class="{ active: stackOption && opt.id === stackOption.id, 'stack-tab-excluded': opt.status === 'excluded' }"
-                                    @click="stackOptionId = opt.id">
-                                {{ opt.name }}
-                                <span v-if="opt.status === 'excluded'" class="status-badge excluded">excluded</span>
-                            </button>
-                        </div>
-
                         <template v-if="stackOption">
                         <!-- Focused option header: name, summary, actions. -->
                         <div class="stack-opt-header" :class="{ 'grid-row-excluded': stackOption.status === 'excluded' }">

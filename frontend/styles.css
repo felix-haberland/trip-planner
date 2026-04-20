@@ -915,7 +915,7 @@ header {
        cells, tighter padding, smaller fonts. Still horizontal-scrolls, but
        the option row header no longer eats 60% of the viewport. */
     .year-grid {
-        grid-template-columns: 120px repeat(var(--window-count, 1), minmax(200px, 1fr));
+        grid-template-columns: 100px repeat(var(--window-count, 1), minmax(200px, 1fr));
         gap: 4px;
     }
     .year-grid .grid-cell { padding: 6px 8px; font-size: 0.82rem; }
@@ -1190,41 +1190,38 @@ header {
 /* F010 — windows × options grid */
 .year-section-actions { display: flex; gap: 6px; }
 
-/* View-mode segmented control. Two sharp, equal-width pills with a solid
-   active fill so it reads as a switch, not as two independent buttons. */
-.year-view-mode {
-    display: inline-flex;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    overflow: hidden;
-    margin: 6px 0 6px;
-    background: #fff;
+/* Unified option bubbles. "All" switches to the compare grid; any other
+   bubble focuses that single option in stack mode. */
+.year-view-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 6px 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
 }
-.year-view-mode .mode-tab {
-    background: #fff;
-    border: none;
-    padding: 7px 16px;
+.year-view-tabs .view-tab {
+    flex-shrink: 0;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    padding: 6px 14px;
     font: inherit;
     font-size: 0.85rem;
-    color: #6b7280;
+    color: #374151;
     cursor: pointer;
+    white-space: nowrap;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    transition: background 0.12s, color 0.12s;
 }
-.year-view-mode .mode-tab + .mode-tab { border-left: 1px solid #e5e7eb; }
-.year-view-mode .mode-tab:hover { background: #f9fafb; color: #374151; }
-.year-view-mode .mode-tab.active {
+.year-view-tabs .view-tab:hover { background: #f3f4f6; }
+.year-view-tabs .view-tab.active {
     background: #2c3e50;
     color: #fff;
-    font-weight: 600;
+    border-color: #2c3e50;
 }
-.year-view-mode .mode-tab-icon {
-    font-size: 0.95rem;
-    line-height: 1;
-    display: inline-block;
-}
+.year-view-tabs .view-tab-excluded { opacity: 0.6; }
 
 /* Stack view: option tabs + vertical list of window cards. */
 .stack-view { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
@@ -1297,17 +1294,26 @@ header {
     gap: 8px;
 }
 
-.year-grid-scroll { overflow-x: auto; margin-top: 10px; }
+.year-grid-scroll {
+    overflow-x: auto;
+    margin-top: 10px;
+    /* Establish a positioning context so the sticky first column uses THIS
+       as its scrolling ancestor (not the outer `.year-detail`). Without
+       `position: relative` some browsers pick the wrong ancestor and the
+       column un-sticks partway through the scroll. */
+    position: relative;
+}
 .year-grid {
     display: grid;
-    /* First col = option row header; one col per window. */
-    grid-template-columns: 160px repeat(var(--window-count, 1), minmax(260px, 1fr));
+    /* First col = option row header (tight); one col per window. */
+    grid-template-columns: 130px repeat(var(--window-count, 1), minmax(260px, 1fr));
     gap: 6px;
     min-width: 100%;
+    position: relative;
 }
 .year-grid .grid-cell {
     background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
-    padding: 8px 10px; font-size: 0.88rem;
+    padding: 8px 10px; font-size: 0.84rem;
 }
 /* Pin the option-header column while the user scrolls through windows. */
 .year-grid .grid-corner,
@@ -1315,19 +1321,23 @@ header {
     position: sticky;
     left: 0;
     z-index: 2;
+    align-self: stretch;
     box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
 }
 .grid-corner {
     background: #f3f4f6;
     color: #9ca3af;
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     letter-spacing: 0.02em;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
+    line-height: 1.2;
 }
-.grid-option-header { background: #f9fafb; }
+.grid-option-header { background: #f9fafb; font-size: 0.8rem; }
+.grid-option-header .opt-name { font-size: 0.9rem; }
+.grid-option-header .opt-summary { font-size: 0.76rem; }
 .grid-option-header .opt-title { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .grid-option-header .opt-name { font-weight: 600; font-size: 0.98rem; }
 .grid-option-header .opt-summary { margin: 4px 0 6px 0; font-size: 0.82rem; color: #374151; cursor: pointer; line-height: 1.3; }
