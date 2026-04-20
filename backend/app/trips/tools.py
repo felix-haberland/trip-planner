@@ -13,6 +13,10 @@ from sqlalchemy.orm import Session
 from . import crud, vacationmap
 from ..golf.tools import annotate_with_curated_library
 
+# Feature flag — keep in sync with chat.GOLF_LIBRARY_ENABLED. Golf library
+# data is incomplete, so AI tools and library annotations are disabled.
+GOLF_LIBRARY_ENABLED = False
+
 # ---------------------------------------------------------------------------
 # Tool definitions (passed to Claude API)
 # ---------------------------------------------------------------------------
@@ -260,10 +264,11 @@ def handle_search_destinations(
             }
         )
 
-    # Spec 006 FR-016: annotate each region with counts of curated library
-    # entries so Claude can mention specific resorts/courses by name instead
-    # of generic "good for golf".
-    annotate_with_curated_library(formatted, golf_db)
+    # Spec 006 FR-016: annotate each region with curated library counts.
+    # Gated on the feature flag — skip while the library is incomplete so
+    # Claude doesn't reference stale data.
+    if GOLF_LIBRARY_ENABLED:
+        annotate_with_curated_library(formatted, golf_db)
 
     output = {"destinations": formatted}
     if excluded_due_to_visit:

@@ -7,14 +7,22 @@ import anthropic
 from sqlalchemy.orm import Session
 
 from . import crud, models, schemas, vacationmap
-from .tools import TOOL_DEFINITIONS, TOOL_HANDLERS, execute_tool
+from .tools import (
+    GOLF_LIBRARY_ENABLED,
+    TOOL_DEFINITIONS,
+    TOOL_HANDLERS,
+    execute_tool,
+)
 from ..anthropic_utils import create_message
 from ..golf.tools import GOLF_TOOL_DEFINITIONS, GOLF_TOOL_HANDLERS
 
-# Merge golf tools into the shared registry at import time (side effect is
-# intentional — keeps chat.py agnostic of which tools it serves).
-TOOL_DEFINITIONS = TOOL_DEFINITIONS + GOLF_TOOL_DEFINITIONS
-TOOL_HANDLERS.update(GOLF_TOOL_HANDLERS)
+# Golf library currently disabled — curated data is incomplete. Flip
+# `GOLF_LIBRARY_ENABLED` in `trips/tools.py` to re-enable tool access, the
+# library hint in the system prompt, and `search_destinations` annotations.
+# Frontend gates the nav/tile on the same concept.
+if GOLF_LIBRARY_ENABLED:
+    TOOL_DEFINITIONS = TOOL_DEFINITIONS + GOLF_TOOL_DEFINITIONS
+    TOOL_HANDLERS.update(GOLF_TOOL_HANDLERS)
 
 # The project root is four levels up (app/trips/chat.py → …/backend/app/ → …/backend/ → repo root).
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -167,10 +175,10 @@ The couple has visited these places before. "never" and "not_soon" destinations 
             "(no structured weights set — infer intent from the user's prompt)"
         )
 
-    # Spec 006 — library-presence hint. Empty library ⇒ encourage user to curate
-    # or fall back to general knowledge cleanly.
+    # Spec 006 — library-presence hint. Gated by GOLF_LIBRARY_ENABLED so the
+    # AI doesn't reference an incomplete curated set.
     library_hint = ""
-    if golf_db is not None:
+    if GOLF_LIBRARY_ENABLED and golf_db is not None:
         try:
             from ..golf import models as _golf_models
 
