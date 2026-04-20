@@ -914,7 +914,8 @@ header {
     /* Compact Compare-grid on phones. */
     .year-grid-wrap {
         grid-template-columns: 100px 1fr;
-        gap: 4px;
+        column-gap: 4px;
+        row-gap: 0;
     }
     .year-grid-right,
     .year-grid-window-row-inner {
@@ -1309,7 +1310,13 @@ header {
     display: grid;
     grid-template-columns: 130px 1fr;
     grid-template-rows: repeat(var(--row-count, 1), auto);
-    gap: 6px;
+    /* row-gap 0 so the sticky window-header row sits flush on the idea
+       cells below it — otherwise the `.year-detail` background text
+       bleeds through that 6px strip as content scrolls under the sticky
+       header. Column gap kept at 6px. Subgrids have their own internal
+       gap so option rows still have breathing room. */
+    column-gap: 6px;
+    row-gap: 0;
     margin-top: 10px;
     min-width: 0;
 }
