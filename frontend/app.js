@@ -1262,6 +1262,14 @@ createApp({
         const yearChatInput = ref('');
         const yearSending = ref(false);
         const yearChatEl = ref(null);
+        // Show the year assistant by default on desktop, hide on mobile —
+        // it otherwise eats half the viewport on phones where the year
+        // content is the thing the user actually opened.
+        const showYearChat = ref(
+            typeof window !== 'undefined' && window.matchMedia
+                ? !window.matchMedia('(max-width: 1024px)').matches
+                : true
+        );
 
         // Windows editor (shared across options)
         const editingWindows = ref(false);
@@ -2020,7 +2028,7 @@ async function deleteOption(opt) {
             extractErrorTitle,
             // F010 — Yearly planner (grid: windows × options, trip-ideas in cells)
             yearPlans, currentYearPlan, yearFilter, yearActiveConvId, yearMessages,
-            yearChatInput, yearSending, yearChatEl,
+            yearChatInput, yearSending, yearChatEl, showYearChat,
             editingWindows, draftWindows,
             addingSlotToOption, addingInWindow, newSlot, editingSlotId, editSlot,
             yearActiveConversations,

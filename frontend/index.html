@@ -1351,6 +1351,9 @@
                         </p>
                     </div>
                     <div class="year-detail-actions">
+                        <button class="btn btn-small" @click="showYearChat = !showYearChat">
+                            {{ showYearChat ? 'Hide assistant' : 'Show assistant' }}
+                        </button>
                         <button class="btn btn-small btn-danger" @click="deleteYearPlan(currentYearPlan.id, currentYearPlan.name)">Delete</button>
                     </div>
                 </div>
@@ -1771,7 +1774,7 @@
             </div>
 
             <!-- Year chatbot sidebar -->
-            <div class="chat-sidebar">
+            <div v-if="showYearChat" class="chat-sidebar">
                 <div class="chat-sidebar-header">
                     <h3>Year Assistant</h3>
                 </div>
