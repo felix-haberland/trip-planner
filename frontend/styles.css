@@ -731,6 +731,54 @@ header {
 .zoom-question input:focus { border-color: #3498db; outline: none; }
 .zoom-reply-actions { margin-top: 12px; }
 
+/* --- Scrollbars --- */
+/* Always show a thin scrollbar on scrollable regions. By default mobile
+   webkit (iOS Safari, Android Chrome) hides scrollbars and only flashes
+   them during scroll, making it easy to miss that a region is scrollable
+   (e.g. a long assistant reply in the chat pane). Explicit webkit styles
+   force a persistent indicator on all platforms; Firefox gets the same
+   via the standard `scrollbar-*` properties. */
+.messages,
+.tables-area,
+.year-detail,
+.planning-main,
+.chat-sidebar,
+.conv-tabs,
+.action-buttons {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+.messages::-webkit-scrollbar,
+.tables-area::-webkit-scrollbar,
+.year-detail::-webkit-scrollbar,
+.planning-main::-webkit-scrollbar,
+.chat-sidebar::-webkit-scrollbar,
+.conv-tabs::-webkit-scrollbar,
+.action-buttons::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    -webkit-appearance: none;
+}
+.messages::-webkit-scrollbar-thumb,
+.tables-area::-webkit-scrollbar-thumb,
+.year-detail::-webkit-scrollbar-thumb,
+.planning-main::-webkit-scrollbar-thumb,
+.chat-sidebar::-webkit-scrollbar-thumb,
+.conv-tabs::-webkit-scrollbar-thumb,
+.action-buttons::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.28);
+    border-radius: 3px;
+}
+.messages::-webkit-scrollbar-track,
+.tables-area::-webkit-scrollbar-track,
+.year-detail::-webkit-scrollbar-track,
+.planning-main::-webkit-scrollbar-track,
+.chat-sidebar::-webkit-scrollbar-track,
+.conv-tabs::-webkit-scrollbar-track,
+.action-buttons::-webkit-scrollbar-track {
+    background: transparent;
+}
+
 /* --- Responsive --- */
 
 /* Tablet / stacked layout */
