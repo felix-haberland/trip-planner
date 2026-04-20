@@ -23,6 +23,7 @@ header {
     font-weight: 600;
     margin: 0;
     letter-spacing: 0.01em;
+    white-space: nowrap;
 }
 .header-nav {
     display: flex;
@@ -38,6 +39,7 @@ header {
     font: inherit;
     font-size: 0.92rem;
     cursor: pointer;
+    white-space: nowrap;
     transition: background 0.12s, color 0.12s;
 }
 .nav-tab:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
@@ -386,6 +388,8 @@ header {
 .chat-sidebar {
     width: 300px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
     border-left: 1px solid #e0e0e0;
     background: #fafafa;
     position: relative;
@@ -737,12 +741,14 @@ header {
         height: calc(100dvh - 48px);
         overflow: hidden;
     }
-    .planning-main {
+    .planning-main,
+    .year-detail {
         flex: 1;
         min-height: 0;
         display: flex;
         flex-direction: column;
         order: 1;
+        overflow: auto;
     }
     .tables-area {
         flex: 1;
@@ -782,6 +788,10 @@ header {
         height: 50dvh !important;
         min-height: 240px;
     }
+    .header-top { gap: 10px; padding: 8px 12px; }
+    .brand { font-size: 1rem; }
+    .header-nav { gap: 2px; }
+    .nav-tab { padding: 6px 10px; font-size: 0.85rem; }
 }
 
 /* ==========================================================================
