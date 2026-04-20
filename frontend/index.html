@@ -136,7 +136,7 @@
                     </template>
                 </div>
 
-                <div class="tables-area">
+                <div class="tables-area" v-scroll-indicator>
                     <!-- TO REVIEW -->
                     <section v-if="currentTrip?.suggested?.length" class="table-section">
                         <h3 class="section-title review-title">
@@ -313,7 +313,7 @@
                             title="Delete permanently">&#128465;</span>
                     </button>
                 </div>
-                <div class="messages" :class="{ 'has-answer-btn': lastMessageHasQuestions && !sending }" ref="messagesContainer">
+                <div class="messages" :class="{ 'has-answer-btn': lastMessageHasQuestions && !sending }" ref="messagesContainer" v-scroll-indicator>
                     <div v-for="(msg, idx) in messages" :key="msg.id"
                          class="message" :class="msg.role">
                         <div v-if="editingMessageId === msg.id" class="message-edit">
@@ -1316,7 +1316,7 @@
 
         <!-- YEAR PLAN DETAIL VIEW -->
         <div v-if="view === 'year-detail' && currentYearPlan" class="planning-layout">
-            <div class="year-detail">
+            <div class="year-detail" v-scroll-indicator>
                 <div class="year-detail-header">
                     <div class="year-detail-title">
                         <div v-if="editingYearPlanField === 'name'" class="inline-edit">
@@ -1783,7 +1783,7 @@
                     </button>
                     <button class="conv-tab conv-new" @click="newYearConversation">+ New</button>
                 </div>
-                <div class="messages" ref="yearChatEl">
+                <div class="messages" ref="yearChatEl" v-scroll-indicator>
                     <div v-for="msg in yearMessages" :key="msg.id" class="message" :class="msg.role">
                         <div class="message-content" v-html="renderMarkdown(msg.content)"></div>
                     </div>

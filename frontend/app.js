@@ -2,6 +2,68 @@ const { createApp, ref, computed, nextTick, onMounted } = Vue;
 
 const API = '';
 
+// Custom scrollbar indicator: mobile Chrome/Safari forcibly hide native
+// scrollbars on touch screens regardless of CSS, so we render our own thin
+// thumb as an absolutely-positioned sibling. Keeps scrollability visible
+// without killing momentum scroll.
+const scrollIndicator = {
+    mounted(el) {
+        const parent = el.parentElement;
+        if (!parent) return;
+        // Ensure the parent establishes a positioning context.
+        const parentPos = getComputedStyle(parent).position;
+        if (parentPos === 'static') parent.style.position = 'relative';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'scroll-indicator-thumb';
+        parent.appendChild(thumb);
+
+        let rafId = 0;
+        const update = () => {
+            rafId = 0;
+            const { scrollTop, scrollHeight, clientHeight, offsetTop, offsetLeft, offsetWidth } = el;
+            if (scrollHeight <= clientHeight + 1) {
+                thumb.style.opacity = '0';
+                return;
+            }
+            const ratio = clientHeight / scrollHeight;
+            const thumbH = Math.max(28, clientHeight * ratio);
+            const maxThumbTop = clientHeight - thumbH;
+            const maxScroll = scrollHeight - clientHeight;
+            const thumbTop = maxScroll > 0 ? (scrollTop / maxScroll) * maxThumbTop : 0;
+            thumb.style.opacity = '1';
+            thumb.style.height = thumbH + 'px';
+            thumb.style.top = (offsetTop + thumbTop) + 'px';
+            thumb.style.left = (offsetLeft + offsetWidth - 6) + 'px';
+        };
+        const schedule = () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(update);
+        };
+
+        el.addEventListener('scroll', schedule, { passive: true });
+        const ro = new ResizeObserver(schedule);
+        ro.observe(el);
+        const mo = new MutationObserver(schedule);
+        mo.observe(el, { childList: true, subtree: true, characterData: true });
+        window.addEventListener('resize', schedule);
+
+        el._scrollIndicatorCleanup = () => {
+            el.removeEventListener('scroll', schedule);
+            window.removeEventListener('resize', schedule);
+            ro.disconnect();
+            mo.disconnect();
+            if (rafId) cancelAnimationFrame(rafId);
+            thumb.remove();
+        };
+
+        schedule();
+    },
+    unmounted(el) {
+        el._scrollIndicatorCleanup?.();
+    },
+};
+
 createApp({
     setup() {
         const view = ref('list');
@@ -1991,4 +2053,6 @@ async function deleteOption(opt) {
             formatSlotSpan,
         };
     },
-}).mount('#app');
+})
+    .directive('scroll-indicator', scrollIndicator)
+    .mount('#app');
