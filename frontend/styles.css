@@ -899,7 +899,7 @@ header {
 
 /* Compact Compare-grid: applies on everything smaller than a desktop
    laptop. Triggers for phones (portrait + landscape) and small tablets. */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
     .year-grid-wrap {
         grid-template-columns: 70px 1fr;
         column-gap: 4px;
@@ -1353,7 +1353,7 @@ header {
    Requires Chrome 117+, Firefox 71+, Safari 16+ (subgrid). */
 .year-grid-wrap {
     display: grid;
-    grid-template-columns: 190px 1fr;
+    grid-template-columns: 160px 1fr;
     grid-template-rows: repeat(var(--row-count, 1), auto);
     position: relative;
     /* row-gap 0 so the sticky window-header row sits flush on the idea
