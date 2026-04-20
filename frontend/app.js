@@ -2,6 +2,61 @@ const { createApp, ref, computed, nextTick, onMounted, watch } = Vue;
 
 const API = '';
 
+// Poor-man's vertical sticky for elements that live inside a horizontally
+// scrolling grid. `position: sticky` gets captured by the grid's overflow
+// container (overflow-x: auto makes the element a Block Formatting Context
+// root and sticky attaches to it rather than the real vertical scrollport),
+// so the browser "sticks" to an element that never scrolls vertically.
+// Works around that by finding the nearest ancestor with overflow-y:auto
+// and translating the element down by however much the ancestor is
+// scrolled. Applied via `v-sticky-top`.
+const stickyTop = {
+    mounted(el) {
+        let ancestor = el.parentElement;
+        while (ancestor && ancestor !== document.body) {
+            const cs = getComputedStyle(ancestor);
+            if (cs.overflowY === 'auto' || cs.overflowY === 'scroll') break;
+            ancestor = ancestor.parentElement;
+        }
+        if (!ancestor || ancestor === document.body) return;
+
+        let rafId = 0;
+        const update = () => {
+            rafId = 0;
+            // Measure natural position by temporarily clearing any transform.
+            const prev = el.style.transform;
+            el.style.transform = '';
+            const rect = el.getBoundingClientRect();
+            const ancRect = ancestor.getBoundingClientRect();
+            const offset = Math.max(0, ancRect.top - rect.top);
+            el.style.transform = offset > 0 ? `translateY(${offset}px)` : '';
+            if (offset === 0 && !prev) return;
+        };
+        const schedule = () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(update);
+        };
+
+        ancestor.addEventListener('scroll', schedule, { passive: true });
+        window.addEventListener('resize', schedule);
+        const ro = new ResizeObserver(schedule);
+        ro.observe(ancestor);
+        ro.observe(el);
+        schedule();
+
+        el._stickyTopCleanup = () => {
+            ancestor.removeEventListener('scroll', schedule);
+            window.removeEventListener('resize', schedule);
+            ro.disconnect();
+            if (rafId) cancelAnimationFrame(rafId);
+            el.style.transform = '';
+        };
+    },
+    unmounted(el) {
+        el._stickyTopCleanup?.();
+    },
+};
+
 // Custom scrollbar indicator: mobile Chrome/Safari forcibly hide native
 // scrollbars on touch screens regardless of CSS, so we render our own thin
 // thumb as an absolutely-positioned sibling. Keeps scrollability visible
@@ -2137,4 +2192,5 @@ async function deleteOption(opt) {
     },
 })
     .directive('scroll-indicator', scrollIndicator)
+    .directive('sticky-top', stickyTop)
     .mount('#app');

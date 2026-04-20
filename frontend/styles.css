@@ -1328,12 +1328,6 @@ header {
     grid-column: 2;
     gap: 0;
     overflow-x: auto;
-    /* Explicit `clip` (not the default) so the browser doesn't coerce
-       overflow-y to `auto`. Without this, sticky window headers attach to
-       THIS element as their vertical scrollport — which never scrolls —
-       instead of walking up to `.year-detail` where the actual vertical
-       scroll happens. */
-    overflow-y: clip;
     min-width: 0;
 }
 .year-grid-right {
@@ -1382,12 +1376,14 @@ header {
     flex-direction: column;
     gap: 2px;
     justify-content: center;
-    /* Pin to the top of `.year-detail`'s scrollport so window labels stay
-       visible while the user scrolls through many option rows. The corner
-       cell gets the same treatment so it lines up. */
-    position: sticky;
-    top: 0;
+    /* Stick-on-scroll handled by the `v-sticky-top` directive in app.js —
+       CSS `position: sticky` is captured by `.year-grid-scroll`'s Block
+       Formatting Context (any element with `overflow-x: auto` becomes a
+       BFC root, which hijacks sticky descendants) so a JS sync is the
+       reliable path here. z-index stays set so the translated header
+       paints above the idea cells it slides over. */
     z-index: 3;
+    will-change: transform;
 }
 .grid-window-header strong { font-size: 0.95rem; }
 .grid-window-header .win-dates { font-size: 0.78rem; color: #6b7280; }

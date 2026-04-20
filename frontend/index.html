@@ -1546,7 +1546,7 @@
                         <div class="year-grid-scroll">
                             <div class="year-grid-right">
                                 <!-- Window header row -->
-                                <div v-for="(win, widx) in currentYearPlan.windows" :key="'wh-'+widx" class="grid-cell grid-window-header">
+                                <div v-for="(win, widx) in currentYearPlan.windows" :key="'wh-'+widx" class="grid-cell grid-window-header" v-sticky-top>
                                     <strong>{{ win.label || `Window #${widx + 1}` }}</strong>
                                     <div class="win-dates">{{ win.start_date }} → {{ win.end_date }}</div>
                                     <div v-if="win.duration_hint" class="win-duration">~{{ win.duration_hint }}d</div>
