@@ -897,28 +897,14 @@ header {
     .zoom-split .zoom-reply { width: 100%; }
 }
 
-@media (max-width: 600px) {
-    .td-reasoning { max-width: 100px; }
-    .action-buttons { gap: 4px; }
-    .btn-action { padding: 5px 8px; font-size: 0.72rem; }
-    .chat-sidebar {
-        height: 50vh !important;
-        height: 50dvh !important;
-        min-height: 240px;
-    }
-    .header-top { gap: 10px; padding: 8px 12px; }
-    .brand { font-size: 1rem; }
-    .header-nav { gap: 2px; }
-    .nav-tab { padding: 6px 10px; font-size: 0.85rem; }
-
-    /* Compact Compare-grid on phones. */
+/* Compact Compare-grid: applies on everything smaller than a desktop
+   laptop. Triggers for phones (portrait + landscape) and small tablets. */
+@media (max-width: 900px) {
     .year-grid-wrap {
-        grid-template-columns: 80px 1fr;
+        grid-template-columns: 70px 1fr;
         column-gap: 4px;
         row-gap: 0;
     }
-    /* Right-edge fade indicating the grid scrolls horizontally. Always
-       visible on phones where there's no obvious scrollbar. */
     .year-grid-wrap::after {
         content: '';
         position: absolute;
@@ -935,6 +921,21 @@ header {
         grid-template-columns: repeat(var(--window-count, 1), minmax(170px, 200px));
         gap: 4px;
     }
+}
+
+@media (max-width: 600px) {
+    .td-reasoning { max-width: 100px; }
+    .action-buttons { gap: 4px; }
+    .btn-action { padding: 5px 8px; font-size: 0.72rem; }
+    .chat-sidebar {
+        height: 50vh !important;
+        height: 50dvh !important;
+        min-height: 240px;
+    }
+    .header-top { gap: 10px; padding: 8px 12px; }
+    .brand { font-size: 1rem; }
+    .header-nav { gap: 2px; }
+    .nav-tab { padding: 6px 10px; font-size: 0.85rem; }
     .year-grid-left-options { gap: 4px; }
     .year-grid-wrap .grid-cell { padding: 6px 8px; font-size: 0.82rem; }
     .grid-window-header strong { font-size: 0.88rem; }
