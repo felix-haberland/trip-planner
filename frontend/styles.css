@@ -118,7 +118,10 @@ header {
 /* ===== PLANNING LAYOUT ===== */
 .planning-layout {
     display: flex;
+    /* 100dvh tracks the actual visible viewport on mobile (URL bar shown or
+       hidden); keep 100vh as a fallback for older browsers. */
     height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
     overflow: hidden;
 }
 
@@ -388,6 +391,7 @@ header {
     position: relative;
     overflow: hidden;
     height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
 }
 
 .chat-inner {
@@ -462,9 +466,10 @@ header {
 .conv-tab.archived { color: #aaa; font-style: italic; }
 
 .messages {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    height: calc(100vh - 180px);
     padding: 12px;
     display: flex;
     flex-direction: column;
@@ -586,6 +591,7 @@ header {
 .chat-expanded {
     flex-direction: column !important;
     height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
 }
 .chat-expanded .chat-sidebar {
     width: 100% !important;
@@ -723,19 +729,12 @@ header {
 
 /* --- Responsive --- */
 
-.messages.has-answer-btn { height: calc(100vh - 220px); }
-
-/* iPad landscape — browser chrome takes extra space */
-@media (max-width: 1250px) {
-    .messages { height: calc(100vh - 270px); }
-    .messages.has-answer-btn { height: calc(100vh - 310px); }
-}
-
 /* Tablet / stacked layout */
 @media (max-width: 1024px) {
     .planning-layout {
         flex-direction: column;
         height: calc(100vh - 48px);
+        height: calc(100dvh - 48px);
         overflow: hidden;
     }
     .planning-main {
@@ -761,8 +760,9 @@ header {
     .chat-sidebar {
         position: relative;
         width: 100% !important;
-        height: 35vh !important;
-        min-height: 220px;
+        height: 45vh !important;
+        height: 45dvh !important;
+        min-height: 260px;
         border-left: none;
         border-top: 2px solid #ddd;
         order: 2;
@@ -777,7 +777,11 @@ header {
     .td-reasoning { max-width: 100px; }
     .action-buttons { gap: 4px; }
     .btn-action { padding: 5px 8px; font-size: 0.72rem; }
-    .chat-sidebar { height: 30vh !important; min-height: 180px; }
+    .chat-sidebar {
+        height: 50vh !important;
+        height: 50dvh !important;
+        min-height: 240px;
+    }
 }
 
 /* ==========================================================================
