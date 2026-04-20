@@ -913,7 +913,7 @@ header {
 
     /* Compact Compare-grid on phones. */
     .year-grid-wrap {
-        grid-template-columns: 100px 1fr;
+        grid-template-columns: 80px 1fr;
         column-gap: 4px;
         row-gap: 0;
     }
