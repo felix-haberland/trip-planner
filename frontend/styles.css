@@ -731,13 +731,15 @@ header {
 .zoom-question input:focus { border-color: #3498db; outline: none; }
 .zoom-reply-actions { margin-top: 12px; }
 
-/* --- Scrollbars --- */
-/* Always show a thin scrollbar on scrollable regions. By default mobile
-   webkit (iOS Safari, Android Chrome) hides scrollbars and only flashes
-   them during scroll, making it easy to miss that a region is scrollable
-   (e.g. a long assistant reply in the chat pane). Explicit webkit styles
-   force a persistent indicator on all platforms; Firefox gets the same
-   via the standard `scrollbar-*` properties. */
+/* --- Scrollbars + scroll-shadow indicators --- */
+/* Two layers of discoverability for scrollable regions:
+   (1) Explicit webkit scrollbars bumped to 10px on touch screens — desktop
+       keeps the thin 6px bar. Firefox gets the same via `scrollbar-*`.
+   (2) A radial shadow at the top and bottom edge that only shows when
+       there's more content in that direction (Lea Verou's scroll-shadow
+       trick). Works even on iOS where webkit-scrollbar styling is
+       unreliable with momentum scrolling, because it uses
+       `background-attachment: local` for the masking layer. */
 .messages,
 .tables-area,
 .year-detail,
@@ -746,7 +748,7 @@ header {
 .conv-tabs,
 .action-buttons {
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
 }
 .messages::-webkit-scrollbar,
 .tables-area::-webkit-scrollbar,
@@ -755,8 +757,8 @@ header {
 .chat-sidebar::-webkit-scrollbar,
 .conv-tabs::-webkit-scrollbar,
 .action-buttons::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     -webkit-appearance: none;
 }
 .messages::-webkit-scrollbar-thumb,
@@ -766,8 +768,8 @@ header {
 .chat-sidebar::-webkit-scrollbar-thumb,
 .conv-tabs::-webkit-scrollbar-thumb,
 .action-buttons::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.28);
-    border-radius: 3px;
+    background-color: rgba(0, 0, 0, 0.35);
+    border-radius: 4px;
 }
 .messages::-webkit-scrollbar-track,
 .tables-area::-webkit-scrollbar-track,
@@ -777,6 +779,51 @@ header {
 .conv-tabs::-webkit-scrollbar-track,
 .action-buttons::-webkit-scrollbar-track {
     background: transparent;
+}
+
+/* Fatter bars on touch screens. */
+@media (hover: none) and (pointer: coarse) {
+    .messages::-webkit-scrollbar,
+    .tables-area::-webkit-scrollbar,
+    .year-detail::-webkit-scrollbar,
+    .planning-main::-webkit-scrollbar,
+    .chat-sidebar::-webkit-scrollbar,
+    .conv-tabs::-webkit-scrollbar,
+    .action-buttons::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+}
+
+/* Scroll-shadow: the "mask" gradient uses background-attachment: local so
+   it scrolls with the content and covers the shadow when you hit the
+   edge; the "shadow" gradient uses background-attachment: scroll so it
+   stays pinned to the edge. Result: shadow visible iff more content
+   exists in that direction. */
+.messages {
+    background:
+        linear-gradient(#fafafa 30%, rgba(250, 250, 250, 0)) center top,
+        linear-gradient(rgba(250, 250, 250, 0), #fafafa 70%) center bottom,
+        radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))
+            center top,
+        radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))
+            center bottom;
+    background-repeat: no-repeat;
+    background-size: 100% 28px, 100% 28px, 100% 12px, 100% 12px;
+    background-attachment: local, local, scroll, scroll;
+}
+.year-detail,
+.tables-area {
+    background:
+        linear-gradient(#fff 30%, rgba(255, 255, 255, 0)) center top,
+        linear-gradient(rgba(255, 255, 255, 0), #fff 70%) center bottom,
+        radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))
+            center top,
+        radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))
+            center bottom;
+    background-repeat: no-repeat;
+    background-size: 100% 28px, 100% 28px, 100% 12px, 100% 12px;
+    background-attachment: local, local, scroll, scroll;
 }
 
 /* --- Responsive --- */
