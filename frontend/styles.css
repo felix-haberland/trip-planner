@@ -1328,6 +1328,12 @@ header {
     grid-column: 2;
     gap: 0;
     overflow-x: auto;
+    /* Explicit `clip` (not the default) so the browser doesn't coerce
+       overflow-y to `auto`. Without this, sticky window headers attach to
+       THIS element as their vertical scrollport — which never scrolls —
+       instead of walking up to `.year-detail` where the actual vertical
+       scroll happens. */
+    overflow-y: clip;
     min-width: 0;
 }
 .year-grid-right {
