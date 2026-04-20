@@ -910,6 +910,18 @@ header {
     .brand { font-size: 1rem; }
     .header-nav { gap: 2px; }
     .nav-tab { padding: 6px 10px; font-size: 0.85rem; }
+
+    /* Compact Compare-grid on phones: narrower first column and window
+       cells, tighter padding, smaller fonts. Still horizontal-scrolls, but
+       the option row header no longer eats 60% of the viewport. */
+    .year-grid {
+        grid-template-columns: 140px repeat(var(--window-count, 1), minmax(200px, 1fr));
+        gap: 4px;
+    }
+    .year-grid .grid-cell { padding: 6px 8px; font-size: 0.82rem; }
+    .grid-option-header .opt-name { font-size: 0.92rem; }
+    .grid-window-header strong { font-size: 0.88rem; }
+    .idea-card { padding: 6px 8px; }
 }
 
 /* ==========================================================================
@@ -1177,6 +1189,108 @@ header {
 
 /* F010 — windows × options grid */
 .year-section-actions { display: flex; gap: 6px; }
+
+/* Grid/Stack mode toggle. Stack view collapses the 2D grid to a single
+   option's timeline — essential on phones where horizontal scroll across
+   windows is miserable. */
+.year-view-mode {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    margin: 8px 0 4px;
+}
+.year-view-mode .mode-tab {
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 0.85rem;
+    color: #6b7280;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.12s, color 0.12s;
+}
+.year-view-mode .mode-tab:hover { color: #374151; }
+.year-view-mode .mode-tab.active {
+    background: #fff;
+    color: #111827;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Stack view: option tabs + vertical list of window cards. */
+.stack-view { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
+.stack-option-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 2px 0 6px;
+    border-bottom: 1px solid #e5e7eb;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+.stack-tab {
+    flex-shrink: 0;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font: inherit;
+    font-size: 0.85rem;
+    color: #374151;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.stack-tab:hover { background: #f3f4f6; }
+.stack-tab.active {
+    background: #2c3e50;
+    color: #fff;
+    border-color: #2c3e50;
+}
+.stack-tab-excluded { opacity: 0.6; }
+
+.stack-opt-header {
+    padding: 12px 14px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+.stack-opt-header .opt-title { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.stack-opt-header .opt-name { font-weight: 600; font-size: 1.05rem; }
+.stack-opt-header .opt-summary { margin: 6px 0 8px; font-size: 0.88rem; color: #374151; cursor: pointer; line-height: 1.4; }
+.stack-opt-header .opt-summary-empty { color: #9ca3af; font-style: italic; }
+.stack-opt-header .opt-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+
+.stack-window-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+}
+.stack-window-header {
+    padding: 10px 14px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.stack-window-header strong { font-size: 0.95rem; }
+.stack-window-header .win-dates { font-size: 0.8rem; color: #6b7280; }
+.stack-window-header .win-duration { font-size: 0.8rem; color: #6b7280; }
+.stack-ideas {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .year-grid-scroll { overflow-x: auto; margin-top: 10px; }
 .year-grid {
     display: grid;

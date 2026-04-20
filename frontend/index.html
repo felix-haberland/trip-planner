@@ -1463,6 +1463,14 @@
                         Rows are your open windows; columns are candidate year arrangements. Each cell is one trip idea — or empty if the option skips that window.
                     </p>
 
+                    <!-- Grid vs Stack view toggle. Stack mode (one option at a
+                         time, windows listed vertically) is much more usable on
+                         a phone; grid is the desktop comparison view. -->
+                    <div class="year-view-mode" v-if="(currentYearPlan.options || []).length">
+                        <button class="mode-tab" :class="{ active: gridMode === 'grid' }" @click="gridMode = 'grid'">Compare grid</button>
+                        <button class="mode-tab" :class="{ active: gridMode === 'stack' }" @click="gridMode = 'stack'">Focus one option</button>
+                    </div>
+
                     <div v-if="(currentYearPlan.windows || []).length === 0" class="empty-state-inline">
                         Add at least one window above before you can place trip ideas.
                     </div>
@@ -1470,7 +1478,7 @@
                         No options yet. Click <strong>Ask AI for options</strong> to generate a few, or <strong>+ Blank option</strong> to start one by hand.
                     </div>
 
-                    <div v-else class="year-grid-scroll">
+                    <div v-else-if="gridMode === 'grid'" class="year-grid-scroll">
                         <div class="year-grid" :style="`--window-count: ${currentYearPlan.windows.length}`">
                             <!-- Top-left corner -->
                             <div class="grid-cell grid-corner">Options ↓ &nbsp;/&nbsp; Windows →</div>
@@ -1654,6 +1662,183 @@
                                 </template>
                             </template>
                         </div>
+                    </div>
+
+                    <!-- STACK VIEW: single option, windows listed vertically.
+                         Rendered when `gridMode === 'stack'`. Reuses the same
+                         idea-card / inline-form / excluded-toggle markup as the
+                         grid — kept duplicated on purpose because the outer
+                         structure diverges meaningfully. -->
+                    <div v-else-if="gridMode === 'stack'" class="stack-view">
+                        <!-- Horizontal scroll strip of options. -->
+                        <div class="stack-option-tabs" v-if="stackableOptions.length > 1">
+                            <button v-for="opt in stackableOptions" :key="'st-'+opt.id"
+                                    class="stack-tab" :class="{ active: stackOption && opt.id === stackOption.id, 'stack-tab-excluded': opt.status === 'excluded' }"
+                                    @click="stackOptionId = opt.id">
+                                {{ opt.name }}
+                                <span v-if="opt.status === 'excluded'" class="status-badge excluded">excluded</span>
+                            </button>
+                        </div>
+
+                        <template v-if="stackOption">
+                        <!-- Focused option header: name, summary, actions. -->
+                        <div class="stack-opt-header" :class="{ 'grid-row-excluded': stackOption.status === 'excluded' }">
+                            <div v-if="isEditingOptionField(stackOption, 'name')" class="inline-edit">
+                                <input v-model="optionFieldDraft" class="inline-edit-input"
+                                       @keyup.enter="saveOptionField" @keyup.esc="cancelEditOptionField">
+                                <button class="btn btn-small btn-primary" @click="saveOptionField">Save</button>
+                                <button class="btn btn-small" @click="cancelEditOptionField">Cancel</button>
+                            </div>
+                            <div v-else class="opt-title">
+                                <span class="opt-name inline-editable" @click="startEditOptionField(stackOption, 'name')" title="Click to rename">{{ stackOption.name }}</span>
+                                <span v-if="stackOption.status !== 'draft'" class="status-badge" :class="stackOption.status">{{ stackOption.status }}</span>
+                                <span v-if="stackOption.created_by === 'ai'" class="status-badge ai-tag">AI</span>
+                            </div>
+
+                            <div v-if="isEditingOptionField(stackOption, 'summary')" class="inline-edit inline-edit-block">
+                                <textarea v-model="optionFieldDraft" rows="2" class="inline-edit-input"
+                                          @keyup.esc="cancelEditOptionField"
+                                          placeholder="One-line summary of this option"></textarea>
+                                <div class="inline-edit-actions">
+                                    <button class="btn btn-small btn-primary" @click="saveOptionField">Save</button>
+                                    <button class="btn btn-small" @click="cancelEditOptionField">Cancel</button>
+                                </div>
+                            </div>
+                            <p v-else-if="stackOption.summary" class="opt-summary inline-editable"
+                               @click="startEditOptionField(stackOption, 'summary')" title="Click to edit">{{ stackOption.summary }}</p>
+                            <p v-else class="opt-summary opt-summary-empty inline-editable"
+                               @click="startEditOptionField(stackOption, 'summary')">+ summary</p>
+
+                            <p v-if="stackOption.status === 'excluded' && stackOption.excluded_reason" class="opt-excluded-reason">
+                                <strong>Excluded:</strong> {{ stackOption.excluded_reason }}
+                            </p>
+                            <div class="opt-actions">
+                                <button v-if="stackOption.status !== 'excluded'" class="btn btn-small btn-exclude-opt" @click="excludeOption(stackOption)" title="Exclude with a reason">⊘ Exclude</button>
+                                <button v-else class="btn btn-small" @click="unexcludeOption(stackOption)" title="Un-exclude">↩ Un-exclude</button>
+                                <button v-if="stackOption.status === 'excluded'" class="btn btn-small btn-danger" @click="deleteOption(stackOption)" title="Delete">× Delete</button>
+                            </div>
+                        </div>
+
+                        <!-- Windows stacked vertically; each card holds that option's ideas for that window. -->
+                        <div v-for="(win, widx) in currentYearPlan.windows" :key="'sw-'+widx" class="stack-window-card">
+                            <div class="stack-window-header">
+                                <strong>{{ win.label || `Window #${widx + 1}` }}</strong>
+                                <div class="win-dates">{{ win.start_date }} → {{ win.end_date }}</div>
+                                <div v-if="win.duration_hint" class="win-duration">~{{ win.duration_hint }}d</div>
+                            </div>
+                            <div class="stack-ideas">
+                                <template v-for="idea in activeIdeasInCell(stackOption, widx)" :key="'sid-'+idea.id">
+                                    <div v-if="editingSlotId === idea.id" class="slot-form-inline">
+                                        <label class="form-field">
+                                            <span class="form-field-label">Label</span>
+                                            <input v-model="editSlot.label" placeholder="e.g. Safari">
+                                        </label>
+                                        <label class="form-field">
+                                            <span class="form-field-label">Theme</span>
+                                            <textarea v-model="editSlot.theme" placeholder="What's this trip about?" rows="3"></textarea>
+                                        </label>
+                                        <div class="form-field-row">
+                                            <label class="form-field form-field-compact">
+                                                <span class="form-field-label">Duration (days)</span>
+                                                <input type="number" v-model.number="editSlot.duration_days" min="1" max="365">
+                                            </label>
+                                            <label class="form-field form-field-compact">
+                                                <span class="form-field-label">Climate</span>
+                                                <input v-model="editSlot.climate_hint" placeholder="warm, ski, …">
+                                            </label>
+                                        </div>
+                                        <label class="form-field">
+                                            <span class="form-field-label">Notes for AI</span>
+                                            <input v-model="editSlot.constraints_note" placeholder="e.g. no long-haul flights, partner allergic to heat">
+                                        </label>
+                                        <div class="slot-form-actions">
+                                            <button class="btn btn-primary btn-small" @click="saveSlotEdit">Save</button>
+                                            <button class="btn btn-small" @click="cancelSlotEdit">Cancel</button>
+                                        </div>
+                                    </div>
+                                    <div v-else class="idea-card" :class="{ 'idea-proposed': idea.status === 'proposed' }">
+                                        <div class="idea-header">
+                                            <strong>{{ ideaDisplayName(idea) }}</strong>
+                                            <span v-if="idea.status !== 'open'" class="status-badge" :class="idea.status">{{ idea.status }}</span>
+                                        </div>
+                                        <p v-if="idea.theme" class="idea-theme">{{ idea.theme }}</p>
+                                        <div v-if="idea.duration_days || idea.climate_hint" class="idea-meta">
+                                            <span v-if="idea.duration_days">~{{ idea.duration_days }}d</span>
+                                            <span v-if="idea.climate_hint">· {{ idea.climate_hint }}</span>
+                                        </div>
+                                        <div class="idea-actions">
+                                            <button v-if="!idea.trip" class="btn btn-primary btn-small" @click="startTripForSlot(idea.id)" title="Start destination discovery">Plan trip</button>
+                                            <button v-if="idea.trip" class="btn btn-primary btn-small" @click="openSlotTrip(idea)" :title="`Open ${idea.trip.name}`">Open trip →</button>
+                                            <button v-if="idea.status === 'proposed'" class="btn btn-small" @click="acceptSlot(idea.id)" title="Accept proposed idea">✓</button>
+                                            <button class="btn btn-small" @click="startEditSlot(idea)" title="Edit">✎</button>
+                                            <button class="btn btn-small btn-exclude-idea" @click="excludeIdea(idea)" title="Exclude with reason">⊘</button>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <!-- Inline add form. -->
+                                <div v-if="addingSlotToOption === stackOption.id && addingInWindow === widx" class="slot-form-inline">
+                                    <label class="form-field">
+                                        <span class="form-field-label">Label</span>
+                                        <input v-model="newSlot.label" placeholder="e.g. Safari">
+                                    </label>
+                                    <label class="form-field">
+                                        <span class="form-field-label">Theme</span>
+                                        <textarea v-model="newSlot.theme" placeholder="What's this trip about?" rows="3"></textarea>
+                                    </label>
+                                    <div class="form-field-row">
+                                        <label class="form-field form-field-compact">
+                                            <span class="form-field-label">Duration (days)</span>
+                                            <input type="number" v-model.number="newSlot.duration_days" min="1" max="365">
+                                        </label>
+                                        <label class="form-field form-field-compact">
+                                            <span class="form-field-label">Climate</span>
+                                            <input v-model="newSlot.climate_hint" placeholder="warm, ski, …">
+                                        </label>
+                                    </div>
+                                    <div class="slot-form-actions">
+                                        <button class="btn btn-primary btn-small" @click="saveNewSlot">Add</button>
+                                        <button class="btn btn-small" @click="cancelAddSlot">Cancel</button>
+                                    </div>
+                                </div>
+
+                                <div v-if="!(addingSlotToOption === stackOption.id && addingInWindow === widx)" class="idea-cell-footer">
+                                    <button class="btn btn-add-idea" @click="startAddIdeaInCell(stackOption.id, widx)">
+                                        {{ activeIdeasInCell(stackOption, widx).length ? '+ Add another' : '+ Add trip idea' }}
+                                    </button>
+                                    <button class="btn btn-add-idea btn-suggest-ai"
+                                        @click="askAISuggestForCell(stackOption, widx)"
+                                        :disabled="yearSending"
+                                        :title="yearSending ? 'Assistant is busy…' : 'Ask the assistant for more ideas'">
+                                        ✨ Suggest more
+                                    </button>
+                                </div>
+
+                                <div v-if="excludedIdeasInCell(stackOption, widx).length" class="excluded-toggle">
+                                    <button class="btn-link-small" @click="toggleShowExcludedInCell(stackOption.id, widx)">
+                                        {{ isExcludedShownInCell(stackOption.id, widx) ? 'Hide' : 'Show' }}
+                                        {{ excludedIdeasInCell(stackOption, widx).length }} excluded
+                                        {{ isExcludedShownInCell(stackOption.id, widx) ? '▴' : '▾' }}
+                                    </button>
+                                </div>
+                                <template v-if="isExcludedShownInCell(stackOption.id, widx)"
+                                          v-for="idea in excludedIdeasInCell(stackOption, widx)" :key="'sx-'+idea.id">
+                                    <div class="idea-card idea-excluded">
+                                        <div class="idea-header">
+                                            <strong>{{ ideaDisplayName(idea) }}</strong>
+                                            <span class="status-badge excluded">excluded</span>
+                                        </div>
+                                        <p v-if="idea.theme" class="idea-theme">{{ idea.theme }}</p>
+                                        <p class="idea-excluded-reason"><strong>Why:</strong> {{ idea.excluded_reason }}</p>
+                                        <div class="idea-actions">
+                                            <button class="btn btn-small" @click="unexcludeIdea(idea)" title="Un-exclude">↩ Un-exclude</button>
+                                            <button class="btn btn-small btn-danger" @click="deleteSlot(idea.id)" title="Delete">×</button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        </template>
                     </div>
                 </section>
             </div>

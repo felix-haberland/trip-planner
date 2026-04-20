@@ -1296,6 +1296,38 @@ createApp({
             }
         });
 
+        // Grid view mode — `grid` is the desktop 2D table, `stack` is the
+        // mobile-friendly single-option vertical layout. Default mirrors the
+        // viewport width so a phone lands in `stack` automatically.
+        const gridMode = ref(
+            typeof window !== 'undefined' && window.matchMedia
+                ? (window.matchMedia('(max-width: 700px)').matches ? 'stack' : 'grid')
+                : 'grid'
+        );
+        // Which option is shown in stack mode. Initialized to the first
+        // non-excluded option whenever the year plan loads or changes.
+        const stackOptionId = ref(null);
+        const stackableOptions = computed(() => {
+            if (!currentYearPlan.value) return [];
+            return (currentYearPlan.value.options || []).filter(
+                (o) => showExcludedOptions.value || o.status !== 'excluded'
+            );
+        });
+        const stackOption = computed(() => {
+            const opts = stackableOptions.value;
+            if (!opts.length) return null;
+            return opts.find((o) => o.id === stackOptionId.value) || opts[0];
+        });
+        watch(currentYearPlan, (plan) => {
+            if (!plan) {
+                stackOptionId.value = null;
+                return;
+            }
+            const opts = (plan.options || []).filter((o) => o.status !== 'excluded');
+            const stillThere = opts.some((o) => o.id === stackOptionId.value);
+            if (!stillThere) stackOptionId.value = opts[0]?.id ?? null;
+        });
+
         // Windows editor (shared across options)
         const editingWindows = ref(false);
         const draftWindows = ref([]);
@@ -2072,6 +2104,7 @@ async function deleteOption(opt) {
             slotsReferencingWindow, confirmRemoveWindowRow,
             focusedOptionIds, isOptionFocused, hasFocusedOptions,
             toggleOptionFocus, clearOptionFocus, shouldShowOption, ideaDisplayName,
+            gridMode, stackOptionId, stackOption, stackableOptions,
             ideasInCell, activeIdeasInCell, excludedIdeasInCell,
             startAddIdeaInCell, cancelAddSlot, saveNewSlot,
             startEditSlot, saveSlotEdit, cancelSlotEdit, deleteSlot,
