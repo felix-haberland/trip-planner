@@ -78,8 +78,8 @@ def delete_year_plan(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Destructive action: pass ?confirm=true to delete a year plan "
-                "(cascades to options, slots, and conversations; linked trips are kept)."
+                "Destructive action: pass ?confirm=true to delete a year plan (cascades"
+                " to options, slots, and conversations; linked trips are kept)."
             ),
         )
     if not crud.delete_year_plan(db, year_plan_id):
@@ -155,6 +155,42 @@ def delete_year_option(
         )
     if not crud.delete_year_option(db, option_id):
         raise HTTPException(status_code=404, detail="Year option not found")
+
+
+@router.post(
+    "/api/year-plans/{year_plan_id}/options/reorder",
+    response_model=schemas.YearPlanDetail,
+)
+def reorder_year_options(
+    year_plan_id: int,
+    body: schemas.YearOptionReorderBody,
+    db: Session = Depends(get_trips_db),
+):
+    try:
+        plan = crud.reorder_year_options(db, year_plan_id, body.option_ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Year plan not found")
+    return crud.year_plan_to_detail(plan, db)
+
+
+@router.post(
+    "/api/year-plans/{year_plan_id}/windows/reorder",
+    response_model=schemas.YearPlanDetail,
+)
+def reorder_windows(
+    year_plan_id: int,
+    body: schemas.WindowReorderBody,
+    db: Session = Depends(get_trips_db),
+):
+    try:
+        plan = crud.reorder_windows(db, year_plan_id, body.order)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Year plan not found")
+    return crud.year_plan_to_detail(plan, db)
 
 
 @router.post(
@@ -285,6 +321,24 @@ def delete_slot(
         )
     if not crud.delete_slot(db, slot_id):
         raise HTTPException(status_code=404, detail="Slot not found")
+
+
+@router.post(
+    "/api/slots/{slot_id}/move",
+    response_model=schemas.SlotDetail,
+)
+def move_slot(
+    slot_id: int,
+    direction: str = Query(pattern="^(up|down)$"),
+    db: Session = Depends(get_trips_db),
+):
+    try:
+        slot = crud.move_slot(db, slot_id, direction)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if slot is None:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    return crud.slot_to_detail(slot, db)
 
 
 @router.post(

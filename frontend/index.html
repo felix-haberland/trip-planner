@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/styles.css?v=20260416a">
     <script src="https://cdn.jsdelivr.net/npm/vue@3.4.15/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.0/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -50,24 +51,27 @@
             <div v-if="trips.length === 0" class="empty-state">
                 No trips yet. Create your first trip to get started!
             </div>
-            <div v-for="trip in trips" :key="trip.id" class="trip-card" @click="openTrip(trip.id)">
-                <div class="trip-card-header">
-                    <h3>{{ trip.name }}</h3>
-                    <span class="status-badge" :class="trip.status">{{ trip.status }}</span>
-                </div>
-                <p class="trip-desc">{{ trip.description }}</p>
-                <div class="trip-meta">
-                    <span v-if="trip.suggested_count">{{ trip.suggested_count }} to review</span>
-                    <span>{{ trip.shortlisted_count }} shortlisted</span>
-                    <span>{{ trip.excluded_count }} excluded</span>
-                    <span>{{ formatDate(trip.updated_at) }}</span>
-                </div>
-                <div class="trip-actions" @click.stop>
-                    <button class="btn btn-small" @click="renameTrip(trip)">Rename</button>
-                    <button class="btn btn-small" @click="toggleArchive(trip)">
-                        {{ trip.status === 'archived' ? 'Unarchive' : 'Archive' }}
-                    </button>
-                    <button class="btn btn-small btn-danger" @click="confirmDelete(trip)">Delete</button>
+            <div v-else class="trip-list" v-sortable="{ onEnd: onTripsReorder, handle: '.drag-handle' }">
+                <div v-for="trip in trips" :key="trip.id" :data-trip-id="trip.id" class="trip-card" @click="openTrip(trip.id)">
+                    <div class="trip-card-header">
+                        <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                        <h3>{{ trip.name }}</h3>
+                        <span class="status-badge" :class="trip.status">{{ trip.status }}</span>
+                    </div>
+                    <p class="trip-desc">{{ trip.description }}</p>
+                    <div class="trip-meta">
+                        <span v-if="trip.suggested_count">{{ trip.suggested_count }} to review</span>
+                        <span>{{ trip.shortlisted_count }} shortlisted</span>
+                        <span>{{ trip.excluded_count }} excluded</span>
+                        <span>{{ formatDate(trip.updated_at) }}</span>
+                    </div>
+                    <div class="trip-actions" @click.stop>
+                        <button class="btn btn-small" @click="renameTrip(trip)">Rename</button>
+                        <button class="btn btn-small" @click="toggleArchive(trip)">
+                            {{ trip.status === 'archived' ? 'Unarchive' : 'Archive' }}
+                        </button>
+                        <button class="btn btn-small btn-danger" @click="confirmDelete(trip)">Delete</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1522,8 +1526,10 @@
                         <!-- Row 1, Col 2: window headers. Sticky top (CSS) +
                              horizontal scroll synced to .year-grid-scroll. -->
                         <div class="year-grid-window-row">
-                            <div class="year-grid-window-row-inner" ref="yearGridWindowInnerEl">
-                                <div v-for="(win, widx) in currentYearPlan.windows" :key="'wh-'+widx" class="grid-cell grid-window-header">
+                            <div class="year-grid-window-row-inner" ref="yearGridWindowInnerEl"
+                                 v-sortable="{ onEnd: onGridWindowsReorder, group: 'year-windows' }">
+                                <div v-for="(win, widx) in currentYearPlan.windows" :key="'wh-'+widx" :data-window-index="widx" class="grid-cell grid-window-header">
+                                    <span class="drag-handle drag-handle-h" title="Drag to reorder">⋮⋮</span>
                                     <strong>{{ win.label || `Window #${widx + 1}` }}</strong>
                                     <div class="win-dates">{{ win.start_date }} → {{ win.end_date }}</div>
                                     <div v-if="win.duration_hint" class="win-duration">~{{ win.duration_hint }}d</div>
@@ -1532,10 +1538,11 @@
                         </div>
 
                         <!-- Rows 2..end, Col 1: option-header column. -->
-                        <div class="year-grid-left-options">
+                        <div class="year-grid-left-options"
+                             v-sortable="{ onEnd: onOptionsReorder, handle: '.opt-drag-handle' }">
                             <template v-for="opt in currentYearPlan.options" :key="'lh-'+opt.id">
                                 <template v-if="shouldShowOption(opt)">
-                                <div class="grid-cell grid-option-header" :class="{ 'grid-row-excluded': opt.status === 'excluded' }">
+                                <div class="grid-cell grid-option-header" :data-option-id="opt.id" :class="{ 'grid-row-excluded': opt.status === 'excluded' }">
                                     <div v-if="isEditingOptionField(opt, 'name')" class="inline-edit">
                                         <input v-model="optionFieldDraft" class="inline-edit-input"
                                                @keyup.enter="saveOptionField" @keyup.esc="cancelEditOptionField">
@@ -1543,6 +1550,7 @@
                                         <button class="btn btn-small" @click="cancelEditOptionField">Cancel</button>
                                     </div>
                                     <div v-else class="opt-title">
+                                        <span class="opt-drag-handle drag-handle" title="Drag to reorder">⋮⋮</span>
                                         <span class="opt-name inline-editable" @click="startEditOptionField(opt, 'name')" title="Click to rename">{{ opt.name }}</span>
                                         <span v-if="opt.status !== 'draft'" class="status-badge" :class="opt.status">{{ opt.status }}</span>
                                         <span v-if="opt.created_by === 'ai'" class="status-badge ai-tag">AI</span>
@@ -1638,6 +1646,8 @@
                                                 <div class="idea-menu-wrap">
                                                     <button class="btn btn-small" @click="toggleIdeaMenu(idea.id, $event)" title="More actions">⋯</button>
                                                     <div v-if="openIdeaMenuId === idea.id" class="idea-menu idea-menu-right" @click.stop>
+                                                        <button class="idea-menu-item" @click="closeIdeaMenu(); moveSlot(idea.id, 'up')">↑ Move up</button>
+                                                        <button class="idea-menu-item" @click="closeIdeaMenu(); moveSlot(idea.id, 'down')">↓ Move down</button>
                                                         <button v-if="idea.status === 'open'" class="idea-menu-item" @click="ideaMenuUnreview(idea)">↺ Back to review</button>
                                                         <button class="idea-menu-item" @click="closeIdeaMenu(); excludeIdea(idea)">⊘ Exclude with reason</button>
                                                         <button class="idea-menu-item idea-menu-danger" @click="closeIdeaMenu(); deleteSlot(idea.id)">× Delete</button>
@@ -1768,12 +1778,14 @@
                         </div>
 
                         <!-- Windows stacked vertically; each card holds that option's ideas for that window. -->
-                        <div v-for="(win, widx) in currentYearPlan.windows" :key="'sw-'+widx" class="stack-window-card">
-                            <div class="stack-window-header">
-                                <strong>{{ win.label || `Window #${widx + 1}` }}</strong>
-                                <div class="win-dates">{{ win.start_date }} → {{ win.end_date }}</div>
-                                <div v-if="win.duration_hint" class="win-duration">~{{ win.duration_hint }}d</div>
-                            </div>
+                        <div class="stack-windows" v-sortable="{ onEnd: onStackWindowsReorder, handle: '.stack-window-header', group: 'year-windows' }">
+                            <div v-for="(win, widx) in currentYearPlan.windows" :key="'sw-'+widx" :data-window-index="widx" class="stack-window-card">
+                                <div class="stack-window-header">
+                                    <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                    <strong>{{ win.label || `Window #${widx + 1}` }}</strong>
+                                    <div class="win-dates">{{ win.start_date }} → {{ win.end_date }}</div>
+                                    <div v-if="win.duration_hint" class="win-duration">~{{ win.duration_hint }}d</div>
+                                </div>
                             <div class="stack-ideas">
                                 <template v-for="idea in activeIdeasInCell(stackOption, widx)" :key="'sid-'+idea.id">
                                     <div v-if="editingSlotId === idea.id" class="slot-form-inline">
@@ -1822,6 +1834,8 @@
                                             <div class="idea-menu-wrap">
                                                 <button class="btn btn-small" @click="toggleIdeaMenu(idea.id, $event)" title="More actions">⋯</button>
                                                 <div v-if="openIdeaMenuId === idea.id" class="idea-menu idea-menu-right" @click.stop>
+                                                    <button class="idea-menu-item" @click="closeIdeaMenu(); moveSlot(idea.id, 'up')">↑ Move up</button>
+                                                    <button class="idea-menu-item" @click="closeIdeaMenu(); moveSlot(idea.id, 'down')">↓ Move down</button>
                                                     <button v-if="idea.status === 'open'" class="idea-menu-item" @click="closeIdeaMenu(); ideaMenuUnreview(idea)">↺ Back to review</button>
                                                     <button class="idea-menu-item" @click="closeIdeaMenu(); excludeIdea(idea)">⊘ Exclude with reason</button>
                                                     <button class="idea-menu-item idea-menu-danger" @click="closeIdeaMenu(); deleteSlot(idea.id)">× Delete</button>
@@ -1891,6 +1905,7 @@
                                         </div>
                                     </div>
                                 </template>
+                            </div>
                             </div>
                         </div>
                         </template>

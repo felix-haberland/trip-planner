@@ -25,6 +25,15 @@ def list_trips(db: Session = Depends(get_trips_db)):
     return [crud.trip_to_summary(t) for t in trips]
 
 
+@router.post("/api/trips/reorder", response_model=list[schemas.TripSummary])
+def reorder_trips(body: schemas.TripReorderBody, db: Session = Depends(get_trips_db)):
+    try:
+        trips = crud.reorder_trips(db, body.trip_ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return [crud.trip_to_summary(t) for t in trips]
+
+
 @router.get("/api/trips/{trip_id}", response_model=schemas.TripDetail)
 def get_trip(trip_id: int, db: Session = Depends(get_trips_db)):
     trip = crud.get_trip(db, trip_id)
@@ -104,10 +113,9 @@ def search_regions(q: str = "", db: Session = Depends(get_vacationmap_db)):
         return []
     rows = db.execute(
         text(
-            "SELECT r.name as region_name, c.name as country_name, c.code as country_code "
-            "FROM regions r JOIN countries c ON r.country_id = c.id "
-            "WHERE r.name LIKE :q OR c.name LIKE :q "
-            "ORDER BY r.name LIMIT 20"
+            "SELECT r.name as region_name, c.name as country_name, c.code as"
+            " country_code FROM regions r JOIN countries c ON r.country_id = c.id WHERE"
+            " r.name LIKE :q OR c.name LIKE :q ORDER BY r.name LIMIT 20"
         ),
         {"q": f"%{q}%"},
     ).fetchall()

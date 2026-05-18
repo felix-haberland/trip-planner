@@ -234,6 +234,74 @@ def delete_year_option(db: Session, option_id: int) -> bool:
     return True
 
 
+def reorder_year_options(
+    db: Session, year_plan_id: int, option_ids: list[int]
+) -> Optional[models.YearPlan]:
+    """Apply a full drag-and-drop ordering to a plan's options. `option_ids`
+    must be a permutation of every existing option's id under this plan."""
+    plan = get_year_plan(db, year_plan_id)
+    if plan is None:
+        return None
+    siblings = (
+        db.query(models.YearOption)
+        .filter(models.YearOption.year_plan_id == year_plan_id)
+        .all()
+    )
+    existing_ids = {o.id for o in siblings}
+    requested = list(option_ids)
+    if len(requested) != len(set(requested)):
+        raise ValueError("option_ids contains duplicates")
+    if set(requested) != existing_ids:
+        missing = existing_ids - set(requested)
+        extra = set(requested) - existing_ids
+        details = []
+        if missing:
+            details.append(f"missing ids: {sorted(missing)}")
+        if extra:
+            details.append(f"unknown ids: {sorted(extra)}")
+        raise ValueError("; ".join(details) or "option_ids must be a permutation")
+    by_id = {o.id: o for o in siblings}
+    for new_pos, option_id in enumerate(requested):
+        by_id[option_id].position = new_pos
+    plan.updated_at = _utcnow()
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+
+def reorder_windows(
+    db: Session, year_plan_id: int, new_order: list[int]
+) -> Optional[models.YearPlan]:
+    """Reshuffle the YearPlan's `windows` JSON array AND remap every slot's
+    `window_index` to follow the move. `new_order` is the list of *old*
+    indices in their new positions (e.g. `[2, 0, 1]` means window 2 becomes
+    the first column). It must be a permutation of `range(len(windows))`.
+    """
+    plan = get_year_plan(db, year_plan_id)
+    if plan is None:
+        return None
+    windows = _parse_windows(plan.windows)
+    requested = list(new_order)
+    if len(requested) != len(windows):
+        raise ValueError(
+            f"new_order has {len(requested)} entries but plan has "
+            f"{len(windows)} windows"
+        )
+    if sorted(requested) != list(range(len(windows))):
+        raise ValueError(f"new_order must be a permutation of 0..{len(windows) - 1}")
+    # old_to_new[old_idx] = new_idx
+    old_to_new = {old_idx: new_idx for new_idx, old_idx in enumerate(requested)}
+    plan.windows = json.dumps([windows[old_idx] for old_idx in requested])
+    for option in plan.options:
+        for slot in option.slots:
+            if slot.window_index is not None:
+                slot.window_index = old_to_new[slot.window_index]
+    plan.updated_at = _utcnow()
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+
 def mark_option_chosen(db: Session, option_id: int) -> Optional[models.YearOption]:
     option = get_year_option(db, option_id)
     if option is None:
@@ -417,7 +485,8 @@ def _resolve_window(plan: models.YearPlan, window_index: int) -> dict:
     windows = _parse_windows(plan.windows)
     if window_index < 0 or window_index >= len(windows):
         raise ValueError(
-            f"window_index {window_index} out of range (plan has {len(windows)} windows)"
+            f"window_index {window_index} out of range (plan has"
+            f" {len(windows)} windows)"
         )
     return windows[window_index]
 
@@ -581,6 +650,50 @@ def delete_slot(db: Session, slot_id: int) -> bool:
             plan.updated_at = _utcnow()
     db.commit()
     return True
+
+
+def move_slot(db: Session, slot_id: int, direction: str) -> models.Slot | None:
+    """Swap a slot's `position` with its neighbor in the same (option,
+    window) cell. Sort key is start date then position, so normalizing
+    positions in the cell-order and then swapping the two neighbors flips
+    the displayed order."""
+    if direction not in ("up", "down"):
+        raise ValueError("direction must be 'up' or 'down'")
+    slot = get_slot(db, slot_id)
+    if slot is None:
+        return None
+    siblings = (
+        db.query(models.Slot)
+        .filter(
+            models.Slot.year_option_id == slot.year_option_id,
+            models.Slot.window_index == slot.window_index,
+        )
+        .order_by(
+            models.Slot.start_year,
+            models.Slot.start_month,
+            models.Slot.position,
+            models.Slot.created_at,
+        )
+        .all()
+    )
+    for i, s in enumerate(siblings):
+        s.position = i
+    idx = next(i for i, s in enumerate(siblings) if s.id == slot_id)
+    target = idx - 1 if direction == "up" else idx + 1
+    if 0 <= target < len(siblings):
+        siblings[idx].position, siblings[target].position = (
+            siblings[target].position,
+            siblings[idx].position,
+        )
+    option = get_year_option(db, slot.year_option_id)
+    if option:
+        option.updated_at = _utcnow()
+        plan = get_year_plan(db, option.year_plan_id)
+        if plan:
+            plan.updated_at = _utcnow()
+    db.commit()
+    db.refresh(slot)
+    return slot
 
 
 def accept_slot(db: Session, slot_id: int) -> Optional[models.Slot]:

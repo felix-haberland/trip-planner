@@ -46,6 +46,11 @@ Update name, description, or status.
 Delete a trip and all child data (cascade).
 **Response** `204`
 
+### `POST /api/trips/reorder`
+Apply a full drag-and-drop ordering (F014). `trip_ids` must be a permutation of every existing trip's id; missing/extra/duplicate ids return 400.
+**Request**: `{ "trip_ids": [5, 3, 1, 2] }`
+**Response** `200`: `TripSummary[]` in the new order. `TripSummary` includes the resulting `position` (0..N-1).
+
 ---
 
 ## Suggested destinations (the review queue)
@@ -344,6 +349,8 @@ Base paths: `/api/year-plans`, `/api/year-options`, `/api/slots`. All bodies JSO
 | `GET`    | `/api/year-plans/{id}` | Full detail: `windows[]`, `options[]` (each with its slots), conversations, `attachable_trip_ids`. |
 | `PATCH`  | `/api/year-plans/{id}` | Body `{name?, intent?, activity_weights?, windows?, status?}`. Status must be `'draft'` or `'archived'`. Windows is a JSON list of `{label?, start_date, end_date, duration_hint?, constraints?}`. |
 | `DELETE` | `/api/year-plans/{id}?confirm=true` | Cascades to options, slots, and conversations. Linked `trip_plans` are kept. |
+| `POST`   | `/api/year-plans/{id}/windows/reorder` | F014. Body `{order: [old_idx, …]}` — a permutation of `range(len(windows))`. Reshuffles the JSON `windows` array AND remaps `slots.window_index` across every option in the plan inside one transaction. Returns `YearPlanDetail`. |
+| `POST`   | `/api/year-plans/{id}/options/reorder` | F014. Body `{option_ids: […]}` — a permutation of every existing option id under this plan. Returns `YearPlanDetail`. |
 
 ### Year options
 

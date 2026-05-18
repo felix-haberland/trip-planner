@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -20,7 +21,14 @@ def _utcnow():
 
 
 def create_trip(db: Session, trip: schemas.TripCreate) -> models.TripPlan:
-    db_trip = models.TripPlan(name=trip.name, description=trip.description)
+    next_position = (
+        db.query(func.coalesce(func.max(models.TripPlan.position), -1)).scalar()
+    ) + 1
+    db_trip = models.TripPlan(
+        name=trip.name,
+        description=trip.description,
+        position=next_position,
+    )
     db.add(db_trip)
     db.commit()
     db.refresh(db_trip)
@@ -28,7 +36,35 @@ def create_trip(db: Session, trip: schemas.TripCreate) -> models.TripPlan:
 
 
 def list_trips(db: Session) -> list[models.TripPlan]:
-    return db.query(models.TripPlan).order_by(models.TripPlan.updated_at.desc()).all()
+    return (
+        db.query(models.TripPlan)
+        .order_by(models.TripPlan.position.asc(), models.TripPlan.id.asc())
+        .all()
+    )
+
+
+def reorder_trips(db: Session, trip_ids: list[int]) -> list[models.TripPlan]:
+    """Apply a full user-supplied ordering. `trip_ids` must be a permutation
+    of every existing trip's id (no missing, extra, or duplicate ids)."""
+    existing = db.query(models.TripPlan).all()
+    existing_ids = {t.id for t in existing}
+    requested = list(trip_ids)
+    if len(requested) != len(set(requested)):
+        raise ValueError("trip_ids contains duplicates")
+    if set(requested) != existing_ids:
+        missing = existing_ids - set(requested)
+        extra = set(requested) - existing_ids
+        details = []
+        if missing:
+            details.append(f"missing ids: {sorted(missing)}")
+        if extra:
+            details.append(f"unknown ids: {sorted(extra)}")
+        raise ValueError("; ".join(details) or "trip_ids must be a permutation")
+    by_id = {t.id: t for t in existing}
+    for new_pos, trip_id in enumerate(requested):
+        by_id[trip_id].position = new_pos
+    db.commit()
+    return list_trips(db)
 
 
 def get_trip(db: Session, trip_id: int) -> Optional[models.TripPlan]:
@@ -504,6 +540,7 @@ def trip_to_summary(trip: models.TripPlan) -> schemas.TripSummary:
         suggested_count=len(trip.suggested),
         shortlisted_count=len(trip.shortlisted),
         excluded_count=len(trip.excluded),
+        position=trip.position,
         created_at=trip.created_at,
         updated_at=trip.updated_at,
         activity_weights=weights,

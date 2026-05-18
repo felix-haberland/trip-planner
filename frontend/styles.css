@@ -127,8 +127,26 @@ header {
     transition: box-shadow 0.15s;
 }
 .trip-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-.trip-card-header { display: flex; justify-content: space-between; align-items: center; }
-.trip-card-header h3 { font-size: 1.1rem; }
+.trip-card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.trip-card-header h3 { font-size: 1.1rem; flex: 1; }
+.trip-card-header .drag-handle { margin-right: 4px; }
+
+/* F011 — drag handles for drag-and-drop reorder (windows, options, trips). */
+.drag-handle {
+    cursor: grab;
+    user-select: none;
+    color: #9ca3af;
+    font-size: 0.9rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    line-height: 1;
+}
+.drag-handle:hover { color: #4b5563; background: #f3f4f6; }
+.drag-handle:active { cursor: grabbing; }
+.drag-handle-h { writing-mode: vertical-rl; transform: rotate(180deg); }
+.sortable-ghost { opacity: 0.4; background: #eef2ff; }
+.sortable-chosen { cursor: grabbing; }
+.opt-drag-handle { float: left; margin-right: 4px; }
 .trip-desc { color: #666; margin: 8px 0; font-size: 0.9rem; }
 .trip-meta { display: flex; gap: 16px; font-size: 0.8rem; color: #999; }
 .trip-actions { display: flex; gap: 8px; margin-top: 8px; }

@@ -28,6 +28,12 @@ class TripPlan(TripsBase):
     # Spec 006 FR-017a: JSON dict mapping activity tag -> integer 0..100.
     # Empty dict ('{}') preserves free-text-inference behavior for pre-006 trips.
     activity_weights = Column(Text, nullable=False, default="{}")
+    # F011: user-driven order in the Trips tab list. Drag-and-drop reorder
+    # writes this. New trips get max(position) + 1 in `crud.create_trip` so
+    # they append at the end. `server_default` keeps bulk imports (e.g. the
+    # bundled seed loader) happy even when their source rows don't carry
+    # position — they all land at 0 and tie-break by id.
+    position = Column(Integer, nullable=False, default=0, server_default="0")
     created_at = Column(DateTime, nullable=False, default=_utcnow)
     updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 

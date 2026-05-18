@@ -82,6 +82,19 @@ class ExcludeReasonBody(BaseModel):
     reason: str = Field(..., min_length=1)
 
 
+class YearOptionReorderBody(BaseModel):
+    option_ids: list[int]
+
+
+class WindowReorderBody(BaseModel):
+    """`order` is the list of *old* window indices in their new positions —
+    e.g. `[2, 0, 1]` moves the third window to the front. Must be a
+    permutation of `range(len(year_plan.windows))`.
+    """
+
+    order: list[int]
+
+
 # --- Slot (now child of YearOption) ---------------------------------------
 
 

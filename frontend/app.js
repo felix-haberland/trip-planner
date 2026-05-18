@@ -119,6 +119,34 @@ const scrollIndicator = {
     },
 };
 
+// F011 — drag-and-drop reorder. Wraps SortableJS so a target is just
+// `v-sortable="{ onEnd, handle?, filter?, group? }"`. The onEnd handler
+// is responsible for: (a) updating the underlying Vue array to match the
+// new DOM order, (b) persisting via API, (c) reloading. SortableJS only
+// reorders DOM nodes — Vue will fight us back unless the array is moved
+// in the same tick.
+const sortable = {
+    mounted(el, binding) {
+        const opts = binding.value || {};
+        el._sortable = Sortable.create(el, {
+            animation: 150,
+            handle: opts.handle,
+            filter: opts.filter || 'input, textarea, button, select, .inline-edit, .idea-menu',
+            preventOnFilter: false,
+            group: opts.group,
+            onEnd: (evt) => {
+                if (typeof opts.onEnd === 'function') opts.onEnd(evt);
+            },
+        });
+    },
+    unmounted(el) {
+        if (el._sortable) {
+            el._sortable.destroy();
+            el._sortable = null;
+        }
+    },
+};
+
 createApp({
     setup() {
         const view = ref('home');
@@ -278,6 +306,24 @@ createApp({
         // --- Trip list ---
         async function loadTrips() {
             trips.value = await api('/api/trips');
+        }
+
+        async function onTripsReorder(evt) {
+            if (evt.oldIndex === evt.newIndex) return;
+            const tripIds = Array.from(evt.to.children)
+                .map(el => Number(el.dataset.tripId))
+                .filter(n => Number.isFinite(n));
+            if (tripIds.length !== trips.value.length) return;
+            const byId = new Map(trips.value.map(t => [t.id, t]));
+            trips.value = tripIds.map(id => byId.get(id)).filter(Boolean);
+            try {
+                await api('/api/trips/reorder', {
+                    method: 'POST',
+                    body: JSON.stringify({ trip_ids: tripIds }),
+                });
+            } finally {
+                await loadTrips();
+            }
         }
 
         function goHome() {
@@ -1760,6 +1806,73 @@ async function deleteOption(opt) {
             await reloadYearPlan();
         }
 
+        async function moveSlot(slotId, direction) {
+            await api(`/api/slots/${slotId}/move?direction=${direction}`, { method: 'POST' });
+            await reloadYearPlan();
+        }
+
+        async function onOptionsReorder(evt) {
+            if (evt.oldIndex === evt.newIndex) return;
+            const plan = currentYearPlan.value;
+            if (!plan) return;
+            const optionIds = Array.from(evt.to.children)
+                .map(el => Number(el.dataset.optionId))
+                .filter(n => Number.isFinite(n));
+            const expected = plan.options.filter(o => shouldShowOption(o)).length;
+            if (optionIds.length !== expected) return;
+            // Reorder visible options to match drag, then append hidden ones
+            // (filtered out by shouldShowOption) preserving their relative order.
+            const visibleById = new Map(plan.options.filter(o => shouldShowOption(o)).map(o => [o.id, o]));
+            const hidden = plan.options.filter(o => !shouldShowOption(o));
+            const reordered = optionIds.map(id => visibleById.get(id)).filter(Boolean);
+            plan.options = [...reordered, ...hidden];
+            try {
+                await api(`/api/year-plans/${plan.id}/options/reorder`, {
+                    method: 'POST',
+                    body: JSON.stringify({ option_ids: plan.options.map(o => o.id) }),
+                });
+            } finally {
+                await reloadYearPlan();
+            }
+        }
+
+        async function onGridWindowsReorder(evt) {
+            await persistWindowOrder(evt);
+        }
+
+        async function onStackWindowsReorder(evt) {
+            await persistWindowOrder(evt);
+        }
+
+        async function persistWindowOrder(evt) {
+            if (evt.oldIndex === evt.newIndex) return;
+            const plan = currentYearPlan.value;
+            if (!plan) return;
+            const oldIndices = Array.from(evt.to.children)
+                .map(el => Number(el.dataset.windowIndex))
+                .filter(n => Number.isFinite(n));
+            if (oldIndices.length !== (plan.windows || []).length) return;
+            plan.windows = oldIndices.map(i => plan.windows[i]);
+            // Remap window_index on every slot to follow the move.
+            const oldToNew = new Map();
+            oldIndices.forEach((oldIdx, newIdx) => oldToNew.set(oldIdx, newIdx));
+            for (const opt of plan.options || []) {
+                for (const slot of opt.slots || []) {
+                    if (slot.window_index != null && oldToNew.has(slot.window_index)) {
+                        slot.window_index = oldToNew.get(slot.window_index);
+                    }
+                }
+            }
+            try {
+                await api(`/api/year-plans/${plan.id}/windows/reorder`, {
+                    method: 'POST',
+                    body: JSON.stringify({ order: oldIndices }),
+                });
+            } finally {
+                await reloadYearPlan();
+            }
+        }
+
         // --- Slot → Trip actions ---
         async function acceptSlot(slotId) {
             await api(`/api/slots/${slotId}/accept`, { method: 'POST' });
@@ -2092,6 +2205,13 @@ async function deleteOption(opt) {
             await switchYearConversation(conv.id);
         }
 
+        async function scrollYearChatToBottom() {
+            await nextTick();
+            if (yearChatEl.value) {
+                yearChatEl.value.scrollTop = yearChatEl.value.scrollHeight;
+            }
+        }
+
         async function sendYearMessage() {
             const content = yearChatInput.value.trim();
             if (!content || yearSending.value || !yearActiveConvId.value) return;
@@ -2100,6 +2220,9 @@ async function deleteOption(opt) {
             yearMessages.value.push({
                 id: Date.now(), role: 'user', content, created_at: new Date().toISOString(),
             });
+            // Scroll immediately so the user's own message + Thinking... line
+            // are visible while the API call is in flight.
+            scrollYearChatToBottom();
             try {
                 const res = await api(`/api/conversations/${yearActiveConvId.value}/messages`, {
                     method: 'POST',
@@ -2119,8 +2242,7 @@ async function deleteOption(opt) {
                 });
             } finally {
                 yearSending.value = false;
-                await nextTick();
-                if (yearChatEl.value) yearChatEl.value.scrollTop = yearChatEl.value.scrollHeight;
+                scrollYearChatToBottom();
             }
         }
 
@@ -2160,6 +2282,7 @@ async function deleteOption(opt) {
             reconsiderExcluded, editNote,
             startEditMessage, saveMessageEdit, deleteMessage,
             renameTrip, toggleArchive, confirmDelete,
+            onTripsReorder,
             formatDate, sv, flightVal, renderMarkdown, renderMarkdownFull,
             zoomMessage, sendZoomAnswers,
             // Spec 006 — Golf Library
@@ -2199,6 +2322,8 @@ async function deleteOption(opt) {
             ideasInCell, activeIdeasInCell, excludedIdeasInCell,
             startAddIdeaInCell, cancelAddSlot, saveNewSlot,
             startEditSlot, saveSlotEdit, cancelSlotEdit, deleteSlot,
+            moveSlot,
+            onOptionsReorder, onGridWindowsReorder, onStackWindowsReorder,
             acceptSlot, unreviewSlot, excludeIdea, unexcludeIdea,
             startTripForSlot, openSlotTrip, unlinkSlotTrip, linkExistingTrip,
             isExcludedShownInCell, toggleShowExcludedInCell,
@@ -2219,4 +2344,5 @@ async function deleteOption(opt) {
 })
     .directive('scroll-indicator', scrollIndicator)
     .directive('sticky-top', stickyTop)
+    .directive('sortable', sortable)
     .mount('#app');

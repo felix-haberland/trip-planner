@@ -28,12 +28,17 @@ class TripSummary(BaseModel):
     suggested_count: int
     shortlisted_count: int
     excluded_count: int
+    position: int
     created_at: datetime
     updated_at: datetime
     activity_weights: Optional[dict] = None
 
     class Config:
         from_attributes = True
+
+
+class TripReorderBody(BaseModel):
+    trip_ids: list[int]
 
 
 class SuggestedDestinationResponse(BaseModel):
